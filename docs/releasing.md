@@ -16,7 +16,7 @@ Trong GitHub repo, đặt các Actions secrets sau:
 - `MAC_CSC_KEY_PASSWORD`: mật khẩu `.p12`.
 - `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`: thông tin notarization của Apple.
 
-Workflow sẽ dừng trước khi publish nếu thiếu các secrets macOS, vì ứng dụng macOS phải được ký để auto update hoạt động. Có thể thêm `WIN_CSC_LINK` và `WIN_CSC_KEY_PASSWORD` để ký Windows, giúp tránh cảnh báo SmartScreen; không commit chứng chỉ hoặc token. GitHub Actions dùng `GITHUB_TOKEN` với quyền `contents: write` chỉ ở job publish. Nếu policy repo chặn quyền ghi, bật quyền cho Actions trong Settings → Actions → General.
+Workflow phát hành Windows độc lập. Nếu thiếu secrets macOS, Release vẫn có NSIS Windows và `latest.yml`; asset Mac được bỏ qua cho đến khi có chứng chỉ ký/notarization. Có thể thêm `WIN_CSC_LINK` và `WIN_CSC_KEY_PASSWORD` để ký Windows, giúp tránh cảnh báo SmartScreen; không commit chứng chỉ hoặc token. GitHub Actions dùng `GITHUB_TOKEN` với quyền `contents: write` ở các job publish. Nếu policy repo chặn quyền ghi, bật quyền cho Actions trong Settings → Actions → General.
 
 ## Build và phát hành
 
@@ -29,25 +29,25 @@ npm run build     # chỉ biên dịch, không tạo installer
 npm run dist      # NSIS trên Windows; DMG + ZIP trên macOS, không upload
 ```
 
-Sau khi đặt đủ secrets, tạo bản phát hành đầu tiên đang có trong repo:
+Các tag `v1.0.3` và `v1.0.4` đã push nhưng workflow cũ lỗi tại `npm ci`, nên không có GitHub Release. Bản workflow sửa lỗi cần được phát hành bằng tag mới, ví dụ `v1.0.5`:
 
 ```bash
 cd release-repo
-git tag v1.0.2
-git push origin v1.0.2
+npm version patch
+git push origin main --follow-tags
 ```
 
 Để phát hành các bản kế tiếp, đặt version mới bằng một trong các lệnh dưới đây tại `release-repo/`:
 
 ```bash
-npm version patch   # 1.0.2 -> 1.0.3
-# hoặc: npm version minor  # 1.0.2 -> 1.1.0
+npm version patch   # 1.0.5 -> 1.0.6
+# hoặc: npm version minor  # 1.0.5 -> 1.1.0
 git push origin main --follow-tags
 ```
 
-`npm version` tự sửa `package.json`/`package-lock.json`, tạo commit và tag `v<version>`; không tạo lại tag bằng tay. Workflow kiểm tra tag trùng version, chạy `npm ci`, build riêng trên Windows và macOS, ký/notarize macOS, rồi tạo GitHub Release kèm `.exe`, `.dmg`, `.zip`, `latest.yml`, `latest-mac.yml`, `.blockmap`. Chỉ published release phiên bản cao hơn bản đã cài và cùng kênh stable mới được nhận diện. Draft/prerelease không hiện vì app tắt `allowPrerelease`.
+`npm version` tự sửa `package.json`/`package-lock.json`, tạo commit và tag `v<version>`; không tạo lại tag bằng tay. Workflow kiểm tra tag trùng version, cài dependencies với `YOUTUBE_DL_SKIP_DOWNLOAD=true` (yt-dlp được tải riêng theo checksum), build NSIS Windows và tạo GitHub Release kèm `.exe`, `latest.yml`, `.blockmap`. Nếu có secrets Apple, workflow còn ký/notarize macOS và upload DMG, ZIP, `latest-mac.yml`, `.blockmap`. Chỉ published release phiên bản cao hơn bản đã cài và cùng kênh stable mới được nhận diện. Draft/prerelease không hiện vì app tắt `allowPrerelease`.
 
-Lệnh `npm run release` có thể publish trực tiếp từ máy hiện tại khi đã đặt `GH_TOKEN`; trên macOS còn cần `CSC_LINK`, `CSC_KEY_PASSWORD` và bộ biến `APPLE_*` ở trên. Khuyến nghị dùng tag + Actions để không lưu PAT trên máy. CI chỉ phát hành một lần sau khi cả hai nền tảng build thành công.
+Lệnh `npm run release` có thể publish trực tiếp từ máy hiện tại khi đã đặt `GH_TOKEN`; trên macOS còn cần `CSC_LINK`, `CSC_KEY_PASSWORD` và bộ biến `APPLE_*` ở trên. Khuyến nghị dùng tag + Actions để không lưu PAT trên máy.
 
 ## Thử cập nhật
 

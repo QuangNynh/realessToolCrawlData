@@ -80,6 +80,19 @@ test('updater handles no release, network errors, and development mode without c
   await assert.rejects(development.invoke('update:check'), /packaged/);
 });
 
+test('missing GitHub Release gives an actionable error', async () => {
+  const harness = createHarness({ check: async () => { throw new Error('Cannot find latest.yml in latest release artifacts (404)'); } });
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    const status = await harness.invoke('update:check');
+    assert.equal(status.state, 'error');
+    assert.match(status.message, /No published update is available/);
+  } finally {
+    console.error = originalError;
+  }
+});
+
 test('repeated Check and Download clicks share one operation', async () => {
   let finishCheck;
   let finishDownload;

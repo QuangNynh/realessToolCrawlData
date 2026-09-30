@@ -18,6 +18,8 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+        env:
+          YOUTUBE_DL_SKIP_DOWNLOAD: 'true'
       - run: node scripts/verify-release-tag.cjs
       - run: npm run dist:win
         env:
@@ -35,6 +37,8 @@ jobs:
 
   macos:
     runs-on: macos-15
+    outputs:
+      enabled: ${{ steps.signing.outputs.enabled }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,16 +46,26 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+        env:
+          YOUTUBE_DL_SKIP_DOWNLOAD: 'true'
       - run: node scripts/verify-release-tag.cjs
-      - name: Require macOS signing and notarization credentials
+      - name: Check macOS signing and notarization credentials
+        id: signing
         env:
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: node scripts/verify-mac-signing.cjs
+        run: |
+          if node scripts/verify-mac-signing.cjs; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            echo 'macOS assets skipped until Apple signing secrets are configured.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Build signed and notarized macOS release
+        if: steps.signing.outputs.enabled == 'true'
         run: |
           npm run build
           node scripts/prepare-yt-dlp.cjs mac
@@ -65,6 +79,7 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       - uses: actions/upload-artifact@v4
+        if: steps.signing.outputs.enabled == 'true'
         with:
           name: macos-release
           path: |
@@ -76,18 +91,39 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [windows, macos]
+    needs: windows
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: '*-release'
-          merge-multiple: true
+          name: windows-release
           path: release-assets
       - name: Create public GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-        run: gh release create "$GITHUB_REF_NAME" release-assets/* --title "CrawlData $GITHUB_REF_NAME" --generate-notes --verify-tag
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" release-assets/* --title "CrawlData $GITHUB_REF_NAME" --generate-notes --verify-tag
+          fi
+
+  publish-macos:
+    needs: [macos, publish]
+    if: needs.macos.result == 'success' && needs.macos.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-release
+          path: release-assets
+      - name: Add signed macOS assets to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber

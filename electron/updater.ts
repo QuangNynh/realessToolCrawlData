@@ -8,7 +8,7 @@ function safeMessage(error: unknown): string {
   if (/EACCES|EPERM|permission denied/i.test(details)) return 'The update cannot be saved. Check file permissions and try again.';
   if (/ENOTFOUND|EAI_AGAIN|ECONN|ETIMEDOUT|net::ERR|network/i.test(details)) return 'Cannot reach GitHub. Check your internet connection and try again.';
   if (/403|401|forbidden|unauthorized/i.test(details)) return 'GitHub denied access. Check that the release repository is public.';
-  if (/404|latest.*yml|not found|no published versions/i.test(details)) return 'No compatible GitHub Release was found. Check the update manifest and release assets.';
+  if (/404|latest.*yml|not found|no published versions|no releases/i.test(details)) return 'No published update is available on GitHub. Check that the Release contains latest.yml and the Windows Setup file.';
   return 'Unable to update. Please try again later.';
 }
 
