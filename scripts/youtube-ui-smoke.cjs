@@ -22,7 +22,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('instagram:connect', () => ({ connected: (instagramConnected = true) }));
   ipcMain.handle('instagram:sync', () => ({ connected: instagramConnected }));
   ipcMain.handle('instagram:disconnect', () => ({ connected: (instagramConnected = false) }));
-  ipcMain.handle('update:get-status', () => ({ state: 'idle', currentVersion: '1.0.1', supported: false }));
+  ipcMain.handle('update:get-status', () => ({ state: 'idle', currentVersion: '1.0.2', supported: false }));
   const intercept = async request => {
     const url = new URL(request.url);
     const route = url.pathname.replace(/^\/api\/v1/, '');
