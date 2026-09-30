@@ -21,7 +21,7 @@
     "dist:mac": "npm run build && node scripts/prepare-yt-dlp.cjs mac && electron-builder --mac dmg zip --publish never",
     "dist:win": "npm run build && node scripts/prepare-yt-dlp.cjs win && node scripts/prepare-windows-native.cjs && electron-builder --win nsis --x64 --publish never",
     "dist": "node scripts/run-platform.cjs dist",
-    "release:mac": "npm run build && node scripts/prepare-yt-dlp.cjs mac && electron-builder --mac dmg zip --publish always",
+    "release:mac": "node scripts/verify-mac-signing.cjs && npm run build && node scripts/prepare-yt-dlp.cjs mac && electron-builder --mac dmg zip --config.mac.notarize=true --publish always",
     "release:win": "npm run build && node scripts/prepare-yt-dlp.cjs win && node scripts/prepare-windows-native.cjs && electron-builder --win nsis --x64 --publish always",
     "release": "node scripts/run-platform.cjs release",
     "test:youtube": "npm run build:backend && node --test tests/youtube-contract.test.cjs",

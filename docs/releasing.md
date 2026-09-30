@@ -39,7 +39,7 @@ git push origin main --follow-tags
 
 `npm version` tự sửa `package.json`/`package-lock.json`, tạo commit và tag `v<version>`; không tạo lại tag bằng tay. Workflow kiểm tra tag trùng version, chạy `npm ci`, build riêng trên Windows và macOS, ký/notarize macOS, rồi tạo GitHub Release kèm `.exe`, `.dmg`, `.zip`, `latest.yml`, `latest-mac.yml`, `.blockmap`. Chỉ published release phiên bản cao hơn bản đã cài và cùng kênh stable mới được nhận diện. Draft/prerelease không hiện vì app tắt `allowPrerelease`.
 
-Lệnh `npm run release` có thể publish trực tiếp từ máy hiện tại khi đã đặt `GH_TOKEN`; khuyến nghị dùng tag + Actions để không lưu PAT trên máy. CI chỉ phát hành một lần sau khi cả hai nền tảng build thành công.
+Lệnh `npm run release` có thể publish trực tiếp từ máy hiện tại khi đã đặt `GH_TOKEN`; trên macOS còn cần `CSC_LINK`, `CSC_KEY_PASSWORD` và bộ biến `APPLE_*` ở trên. Khuyến nghị dùng tag + Actions để không lưu PAT trên máy. CI chỉ phát hành một lần sau khi cả hai nền tảng build thành công.
 
 ## Thử cập nhật
 

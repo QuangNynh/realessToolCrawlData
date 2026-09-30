@@ -44,20 +44,13 @@ jobs:
       - run: npm ci
       - run: node scripts/verify-release-tag.cjs
       - name: Require macOS signing and notarization credentials
-        shell: bash
         env:
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          for key in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
-            if [[ -z "${!key}" ]]; then
-              echo "Missing required macOS release secret: $key" >&2
-              exit 1
-            fi
-          done
+        run: node scripts/verify-mac-signing.cjs
       - name: Build signed and notarized macOS release
         run: |
           npm run build

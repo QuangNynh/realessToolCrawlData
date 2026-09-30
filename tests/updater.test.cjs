@@ -79,3 +79,31 @@ test('updater handles no release, network errors, and development mode without c
   assert.equal((await development.invoke('update:get-status')).supported, false);
   await assert.rejects(development.invoke('update:check'), /packaged/);
 });
+
+test('repeated Check and Download clicks share one operation', async () => {
+  let finishCheck;
+  let finishDownload;
+  let checks = 0;
+  let downloads = 0;
+  const harness = createHarness({
+    check: () => { checks += 1; return new Promise((resolve) => { finishCheck = () => {
+      harness.updater.emit('update-available', { version: '1.0.2' });
+      resolve({ isUpdateAvailable: true });
+    }; }); },
+    download: () => { downloads += 1; return new Promise((resolve) => { finishDownload = () => {
+      harness.updater.emit('update-downloaded', { version: '1.0.2' });
+      resolve([]);
+    }; }); },
+  });
+  const checkA = harness.invoke('update:check');
+  const checkB = harness.invoke('update:check');
+  assert.equal(checks, 1);
+  finishCheck();
+  await Promise.all([checkA, checkB]);
+  const downloadA = harness.invoke('update:download');
+  const downloadB = harness.invoke('update:download');
+  assert.equal(downloads, 1);
+  finishDownload();
+  assert.equal((await downloadA).state, 'downloaded');
+  assert.equal((await downloadB).state, 'downloaded');
+});
