@@ -1,0 +1,54 @@
+{
+  "appId": "com.quangny.youtubescheduler",
+  "productName": "CrawlData",
+  "publish": {
+    "provider": "github",
+    "owner": "QuangNynh",
+    "repo": "realessToolCrawlData"
+  },
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "dist-backend/**/*",
+    "dist-electron/**/*",
+    "build/icon.png",
+    "node_modules/**/*",
+    "package.json"
+  ],
+  "asarUnpack": [
+    "node_modules/youtube-dl-exec/bin/**",
+    "node_modules/@ffmpeg-installer/**/ffmpeg*"
+  ],
+  "mac": {
+    "target": ["dmg", "zip"],
+    "icon": "build/icon.icns",
+    "category": "public.app-category.utilities",
+    "extraResources": [{ "from": "build/yt-dlp/mac", "to": "bin" }]
+  },
+  "win": {
+    "icon": "build/icon.ico",
+    "extraResources": [{ "from": "build/yt-dlp/win", "to": "bin" }],
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ]
+  },
+  "nsis": {
+    "artifactName": "CrawlData-Setup-${version}.${ext}",
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": "always",
+    "createStartMenuShortcut": true,
+    "shortcutName": "CrawlData",
+    "installerIcon": "build/icon.ico",
+    "uninstallerIcon": "build/icon.ico"
+  }
+}

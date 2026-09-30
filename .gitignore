@@ -1,0 +1,15 @@
+node_modules
+dist
+dist-backend
+dist-electron
+release
+build/yt-dlp/
+build/native-cache/
+data/uploads/*
+data/youtube-channels.json
+data/tiktok-channel-ids.json
+data/settings.json
+.env
+.DS_Store
+release-repo/
+data/pinterest/
