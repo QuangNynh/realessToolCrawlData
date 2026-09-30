@@ -54,7 +54,7 @@ File cài đặt xuất xưởng sẽ nằm trong thư mục `release/`.
 
 Vào **Settings / About → Check for Updates** trên bản đã cài đặt. Ứng dụng chỉ kiểm tra khi người dùng bấm nút; tải và cài bản mới cũng cần người dùng xác nhận. Bản development không kiểm tra cập nhật.
 
-Quy trình phát hành cho Windows và macOS, cấu hình ký macOS, các file `latest*.yml` và cách thử update nằm trong [docs/releasing.md](docs/releasing.md). Repo mã nguồn phát hành riêng là [realessToolCrawlData](https://github.com/QuangNynh/realessToolCrawlData).
+Các lệnh push bản mới nằm trong [RELEASE_PUSH.md](RELEASE_PUSH.md). Cấu hình ký macOS, các file `latest*.yml` và cách thử update chi tiết nằm trong [docs/releasing.md](docs/releasing.md). Repo mã nguồn phát hành riêng là [realessToolCrawlData](https://github.com/QuangNynh/realessToolCrawlData).
 
 
 ## YouTube Tools
