@@ -1,5 +1,4 @@
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
@@ -48,7 +47,9 @@ async function main() {
   }
 
   if (!fs.existsSync(marker) || fs.readFileSync(marker, 'utf8') !== binary.sha256 || !fs.existsSync(path.join(directory, binary.filename))) {
-    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'lenyt-yt-dlp-'));
+    // Keep the temporary directory on the destination volume: Windows runners
+    // often put os.tmpdir() on C: while the checkout is on D:.
+    const temporary = fs.mkdtempSync(path.join(base, '.lenyt-yt-dlp-'));
     try {
       const zip = await JSZip.loadAsync(fs.readFileSync(archive));
       for (const entry of Object.values(zip.files)) {

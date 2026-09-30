@@ -29,7 +29,7 @@ npm run build     # chỉ biên dịch, không tạo installer
 npm run dist      # NSIS trên Windows; DMG + ZIP trên macOS, không upload
 ```
 
-Các tag `v1.0.3` và `v1.0.4` đã push nhưng workflow cũ lỗi tại `npm ci`, nên không có GitHub Release. Bản workflow sửa lỗi cần được phát hành bằng tag mới, ví dụ `v1.0.5`:
+Các tag `v1.0.3` và `v1.0.4` lỗi tại `npm ci`; tag `v1.0.5` lỗi `EXDEV` khi chuyển file giữa các ổ trên Windows. Bản sửa lỗi được phát hành bằng tag `v1.0.6`:
 
 ```bash
 cd release-repo
@@ -40,8 +40,8 @@ git push origin main --follow-tags
 Để phát hành các bản kế tiếp, đặt version mới bằng một trong các lệnh dưới đây tại `release-repo/`:
 
 ```bash
-npm version patch   # 1.0.5 -> 1.0.6
-# hoặc: npm version minor  # 1.0.5 -> 1.1.0
+npm version patch   # 1.0.6 -> 1.0.7
+# hoặc: npm version minor  # 1.0.6 -> 1.1.0
 git push origin main --follow-tags
 ```
 
@@ -51,10 +51,10 @@ Lệnh `npm run release` có thể publish trực tiếp từ máy hiện tại 
 
 ## Thử cập nhật
 
-1. Phát hành bản baseline đã tích hợp updater `v1.0.2`, rồi cài NSIS trên Windows hoặc DMG đã ký/notarize trên macOS. Các bản 1.0.1 cũ phải được thay thủ công một lần vì chưa có updater.
-2. Phát hành `v1.0.3` bằng tag tương ứng và chờ GitHub Actions hoàn tất.
-3. Mở bản `1.0.2` → Settings / About → Check for Updates → Download Update → Restart and Install.
-4. Xác nhận bản mở lại là `1.0.3`. Test trên app cài đặt thật; `npm run dev` không có `app-update.yml` và cố ý không update.
+1. Cài bản `v1.0.6` từ GitHub Release trên Windows. Các bản 1.0.1 cũ phải được thay thủ công một lần vì chưa có updater. Trên macOS, cần bổ sung signing secrets để phát hành DMG/ZIP đã ký.
+2. Phát hành `v1.0.7` bằng tag tương ứng và chờ GitHub Actions hoàn tất.
+3. Mở bản `1.0.6` → Settings / About → Check for Updates → Download Update → Restart and Install.
+4. Xác nhận bản mở lại là `1.0.7`. Test trên app cài đặt thật; `npm run dev` không có `app-update.yml` và cố ý không update.
 
 ## Khi có lỗi
 

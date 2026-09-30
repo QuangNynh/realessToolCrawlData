@@ -20,9 +20,9 @@ Repo dùng để phát hành: [QuangNynh/realessToolCrawlData](https://github.co
 
 Workflow phát hành Windows ngay khi build NSIS thành công. Nếu thiếu secrets Apple, bản Mac được bỏ qua; Windows vẫn có Release và update được. Bản Mac chỉ được thêm khi đã ký và notarize thành công.
 
-## 2. Push bản sửa lỗi update: v1.0.5
+## 2. Bản sửa lỗi update: v1.0.6
 
-Tag `v1.0.3` và `v1.0.4` đã chạy workflow cũ nhưng lỗi tại `npm ci`, vì vậy GitHub chưa có published Release. Sau khi sửa workflow và tăng version lên `1.0.5`, push commit/tag mới:
+Tag `v1.0.3` và `v1.0.4` lỗi tại `npm ci`; `v1.0.5` lỗi khi chuyển file giữa ổ C: và D: trên Windows. Bản `v1.0.6` sửa cả hai lỗi:
 
 ```bash
 cd /Users/quangnynh/Desktop/project/lenytdesktop/release-repo
@@ -31,19 +31,19 @@ git pull --ff-only origin main
 git push origin main --follow-tags
 ```
 
-`git status --short` nên không in gì; tag `v1.0.5` phải trỏ tới commit sửa workflow. Không tạo lại tag `v1.0.4` vì tag đó chứa workflow lỗi.
+`git status --short` nên không in gì; tag `v1.0.6` phải trỏ tới commit sửa lỗi. Không tạo lại các tag cũ vì chúng chứa bản build lỗi.
 
 Sau khi push tag, xem tiến độ tại [GitHub Actions](https://github.com/QuangNynh/realessToolCrawlData/actions). Workflow cài dependencies với `YOUTUBE_DL_SKIP_DOWNLOAD=true`, chuẩn bị binary yt-dlp riêng, build NSIS Windows và tạo [GitHub Release](https://github.com/QuangNynh/realessToolCrawlData/releases). Nếu có đủ secrets Apple, nó còn ký/notarize và thêm asset Mac.
 
 Release thành công phải có ít nhất:
 
 ```text
-CrawlData-Setup-1.0.5.exe
-CrawlData-Setup-1.0.5.exe.blockmap
+CrawlData-Setup-1.0.6.exe
+CrawlData-Setup-1.0.6.exe.blockmap
 latest.yml
 # Khi có đủ secrets Apple:
-CrawlData-1.0.5-arm64.dmg
-CrawlData-1.0.5-arm64-mac.zip
+CrawlData-1.0.6-arm64.dmg
+CrawlData-1.0.6-arm64-mac.zip
 latest-mac.yml
 ```
 
@@ -64,16 +64,16 @@ npm version patch
 git push origin main --follow-tags
 ```
 
-Ví dụ: `npm version patch` đổi `1.0.5` → `1.0.6`. Muốn đổi `1.0.5` → `1.1.0`, dùng `npm version minor` thay cho `patch`. `npm version` **tự tạo commit và tag**; không chạy thêm `git tag` hoặc tạo commit version thủ công. `--follow-tags` push cả commit trên `main` và tag mới, kích hoạt workflow phát hành.
+Ví dụ: `npm version patch` đổi `1.0.6` → `1.0.7`. Muốn đổi `1.0.6` → `1.1.0`, dùng `npm version minor` thay cho `patch`. `npm version` **tự tạo commit và tag**; không chạy thêm `git tag` hoặc tạo commit version thủ công. `--follow-tags` push cả commit trên `main` và tag mới, kích hoạt workflow phát hành.
 
 Nếu bạn vẫn sửa code ở project cha, phải chép các file đã sửa sang `release-repo/` và kiểm tra diff tại đó **trước khi commit**. Repo phát hành không tự đồng bộ với repo Git của project cha.
 
 ## 4. Kiểm tra cập nhật trong app
 
-1. Cài bản **1.0.5 từ GitHub Release** bằng NSIS `.exe`. Các bản 1.0.1 cũ chưa có updater ổn định nên phải cài 1.0.5 thủ công một lần.
-2. Phát hành `v1.0.6` theo mục 3 và chờ workflow hoàn thành.
-3. Mở app 1.0.5 → **Settings / About → Check for Updates → Download Update → Restart and Install**.
-4. App mở lại và hiển thị version 1.0.6. Bản `npm run dev` không kiểm tra update.
+1. Cài bản **1.0.6 từ GitHub Release** bằng NSIS `.exe`. Các bản 1.0.1 cũ chưa có updater ổn định nên phải cài 1.0.6 thủ công một lần.
+2. Phát hành `v1.0.7` theo mục 3 và chờ workflow hoàn thành.
+3. Mở app 1.0.6 → **Settings / About → Check for Updates → Download Update → Restart and Install**.
+4. App mở lại và hiển thị version 1.0.7. Bản `npm run dev` không kiểm tra update.
 
 ## Khi workflow hoặc update báo lỗi
 
