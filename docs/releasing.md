@@ -29,7 +29,15 @@ npm run build     # chỉ biên dịch, không tạo installer
 npm run dist      # NSIS trên Windows; DMG + ZIP trên macOS, không upload
 ```
 
-Để phát hành từ repo riêng, đặt version mới bằng một trong các lệnh dưới đây tại `release-repo/`:
+Sau khi đặt đủ secrets, tạo bản phát hành đầu tiên đang có trong repo:
+
+```bash
+cd release-repo
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+Để phát hành các bản kế tiếp, đặt version mới bằng một trong các lệnh dưới đây tại `release-repo/`:
 
 ```bash
 npm version patch   # 1.0.1 -> 1.0.2
