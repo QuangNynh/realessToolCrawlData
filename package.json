@@ -1,6 +1,6 @@
 {
   "name": "crawldata",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Desktop media tools for YouTube, Instagram, TikTok and Pinterest",
   "main": "dist-electron/main.js",
   "private": true,
