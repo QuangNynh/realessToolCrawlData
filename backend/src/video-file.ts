@@ -3,12 +3,12 @@ import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
 
-async function inspectVideo(file: string, ffmpegPath: string) {
+async function inspectVideo(file: string, ffmpegPath: string, signal?: AbortSignal) {
   let details: string;
   try {
     const result = await execFileAsync(ffmpegPath, [
       '-hide_banner', '-nostdin', '-i', file, '-frames:v', '1', '-f', 'null', '-',
-    ], { timeout: 30_000, maxBuffer: 1024 * 1024 });
+    ], { signal, timeout: 30_000, maxBuffer: 1024 * 1024, windowsHide: true });
     details = result.stderr;
   } catch (error) {
     throw new Error(`File tải về không phải video hợp lệ: ${error instanceof Error ? error.message : String(error)}`);
@@ -25,18 +25,18 @@ async function inspectVideo(file: string, ffmpegPath: string) {
   };
 }
 
-export async function playableMp4(source: string, output: string, ffmpegPath: string): Promise<string> {
-  const input = await inspectVideo(source, ffmpegPath);
+export async function playableMp4(source: string, output: string, ffmpegPath: string, signal?: AbortSignal): Promise<string> {
+  const input = await inspectVideo(source, ffmpegPath, signal);
   if (input.compatible) return source;
 
   await execFileAsync(ffmpegPath, [
     '-hide_banner', '-loglevel', 'error', '-nostdin', '-i', source,
     '-c:v', 'libx264', '-c:a', 'aac', '-preset', 'veryfast', '-crf', '23',
-    '-pix_fmt', 'yuv420p', '-threads', '0', '-movflags', '+faststart',
+    '-pix_fmt', 'yuv420p', '-threads', '2', '-movflags', '+faststart',
     '-y', output,
-  ], { timeout: 30 * 60_000, maxBuffer: 1024 * 1024 });
+  ], { signal, timeout: 30 * 60_000, maxBuffer: 1024 * 1024, windowsHide: true });
 
-  if (!(await inspectVideo(output, ffmpegPath)).compatible) {
+  if (!(await inspectVideo(output, ffmpegPath, signal)).compatible) {
     throw new Error('Không thể tạo file MP4 H.264/AAC có thể phát');
   }
   return output;

@@ -1,4 +1,4 @@
-import api from '@/config/axios';
+import api, { TIMEOUT_DOWNLOAD, TIMEOUT_SCAN } from '@/config/axios';
 
 export { api };
 
@@ -92,14 +92,14 @@ class YouTubeService {
   async getTranscripts(videoIds: string[]): Promise<TranscriptResponse[]> {
     const response = await api.post(`youtube/transcripts`, {
       videoIds
-    })
+    }, { timeout: TIMEOUT_SCAN })
     return response.data
   }
 
   async getUrlsAll(url: string): Promise<DataUrls[]> {
     const response = await api.post(`youtube/urls`, {
       url
-    })
+    }, { timeout: TIMEOUT_SCAN })
     return response.data.videos
   }
 
@@ -109,7 +109,8 @@ class YouTubeService {
         `youtube/audio`,
         { url },
         {
-          responseType: 'blob'
+          responseType: 'blob',
+          timeout: TIMEOUT_DOWNLOAD
         }
       )
 
@@ -219,7 +220,8 @@ class YouTubeService {
         `youtube/video`,
         { url, quality },
         {
-          responseType: 'blob'
+          responseType: 'blob',
+          timeout: TIMEOUT_DOWNLOAD
         }
       )
 

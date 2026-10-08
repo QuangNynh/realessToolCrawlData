@@ -1,10 +1,16 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import { UPLOADS_DIR } from './config';
 import { youtubeToolsService } from './youtube-tools.service';
 import { instagramService } from './instagram.service';
 import { tiktokService } from './tiktok.service';
 import { pinterestService } from './pinterest.service';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { getMediaJobs } from './media-instance';
+import { createMediaProcessor, ProcessedMedia } from './media-processor';
+import { mediaOptions } from './media-jobs';
 
 export const apiRouter = Router();
 
@@ -36,19 +42,44 @@ apiRouter.post('/youtube/download-image', async (req: Request, res: Response) =>
 });
 
 const audioUpload = multer({ dest: UPLOADS_DIR, limits: { fileSize: 500 * 1024 * 1024 } });
+const receiveMediaUpload = (req: Request, res: Response, next: NextFunction) => audioUpload.single('file')(req, res, error => {
+  if (!error) return next();
+  if (req.file) fs.rmSync(req.file.path, { force: true });
+  return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ success: false, message: error.code === 'LIMIT_FILE_SIZE' ? 'File upload tối đa 500 MB' : error.message });
+});
 for (const kind of ['srt', 'script']) {
-  apiRouter.post(`/youtube/${kind}`, audioUpload.single('file'), async (req: Request, res: Response) => {
+  apiRouter.post(`/youtube/${kind}`, receiveMediaUpload, async (req: Request, res: Response) => {
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+    const controller = new AbortController();
+    res.once('close', () => { if (!res.writableFinished) controller.abort(); });
     try {
-      const srt = await youtubeToolsService.audioToSrt(req.file.path);
+      const srt = await youtubeToolsService.audioToSrt(req.file.path, controller.signal);
       const content = kind === 'srt' ? srt : youtubeToolsService.srtToScript(srt);
       const extension = kind === 'srt' ? 'srt' : 'txt';
       const filename = req.file.originalname.replace(/\.[^.]+$/, '') + '.' + extension;
       res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
       res.type('text/plain').send(content);
-    } catch (error: any) { res.status(400).json({ success: false, message: error.message }); }
+    } catch (error: any) { if (!res.headersSent && !res.destroyed) res.status(400).json({ success: false, message: error.message }); }
   });
 }
+
+apiRouter.post('/media/extract-audio', receiveMediaUpload, async (req: Request, res: Response) => {
+  if (!req.file) return res.status(400).json({ success: false, message: 'Chưa chọn video' });
+  const controller = new AbortController();
+  let result: ProcessedMedia | undefined;
+  const cleanup = () => { result?.cleanup(); fs.rmSync(req.file!.path, { force: true }); };
+  res.once('close', () => { if (!res.writableFinished) controller.abort(); cleanup(); });
+  try {
+    if (!/\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v|mpeg|mpg|ts)$/i.test(req.file.originalname)) throw new Error('Định dạng video không hợp lệ');
+    const options = mediaOptions({ format: req.body.format, bitrate: req.body.bitrate });
+    result = await createMediaProcessor(getMediaJobs().runtime)(req.file.path, { id: 'upload', tool: 'extract', createdAt: new Date().toISOString(), directory: os.tmpdir(), paused: false, items: [], options }, { id: 'upload', name: req.file.originalname, bytes: req.file.size, status: 'running' }, controller.signal, () => {});
+    if (controller.signal.aborted) throw new Error('Đã hủy xử lý');
+    const filename = path.basename(req.file.originalname, path.extname(req.file.originalname)) + '.' + options.format;
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.type({ mp3: 'audio/mpeg', wav: 'audio/wav', aac: 'audio/aac', flac: 'audio/flac', ogg: 'audio/ogg' }[options.format]);
+    res.sendFile(result.path, error => { cleanup(); if (error && !res.headersSent) res.status(400).json({ success: false, message: error.message }); });
+  } catch (error) { cleanup(); if (!res.headersSent && !res.destroyed) res.status(400).json({ success: false, message: error instanceof Error ? error.message : String(error) }); }
+});
 
 apiRouter.post('/youtube/audio/youtubei', async (req: Request, res: Response) => {
   const { url, format = 'mp3' } = req.body;

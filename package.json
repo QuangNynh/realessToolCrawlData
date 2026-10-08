@@ -25,8 +25,16 @@
     "release:win": "npm run build && node scripts/prepare-yt-dlp.cjs win && node scripts/prepare-windows-native.cjs && electron-builder --win nsis --x64 --publish always",
     "release": "node scripts/run-platform.cjs release",
     "test:youtube": "npm run build:backend && node --test tests/youtube-contract.test.cjs",
+    "test:youtube-downloads": "npm run build:backend && node --test tests/youtube-downloads.test.cjs",
     "test:youtube-ui": "npm run build:frontend && electron scripts/youtube-ui-smoke.cjs",
-    "test:updater": "npm run build:electron && node --test tests/updater.test.cjs"
+    "test:updater": "npm run build:electron && node --test tests/updater.test.cjs",
+    "test:ai": "npm run build:backend && node --test tests/ai-gateway.test.cjs",
+    "test:ai-ui": "electron scripts/ai-ui-smoke.cjs",
+    "test:script-converter": "npm run build:backend && node --test tests/script-converter.test.cjs",
+    "test:script-converter-ui": "electron scripts/script-converter-ui-smoke.cjs",
+    "setup:whisper": "npm run build:backend && node scripts/setup-whisper.cjs",
+    "test:media": "npm run build:backend && node --test tests/media-tools.test.cjs",
+    "test:media-ui": "electron scripts/media-ui-smoke.cjs"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

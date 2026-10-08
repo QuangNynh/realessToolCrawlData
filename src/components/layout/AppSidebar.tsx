@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Youtube, Instagram, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
+import { Youtube, Instagram, ChevronLeft, ChevronRight, Settings, X, Rocket, FileText, Subtitles, FileAudio, Scissors } from 'lucide-react';
 import { Button } from '../ui/button';
 
 const TikTokIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -48,6 +48,27 @@ const navItems: NavItem[] = [
     color: 'text-red-600',
   },
   {
+    label: 'AI / Antigravity',
+    path: '/ai',
+    icon: <Rocket className="h-5 w-5" />,
+    color: 'text-amber-500',
+  },
+  {
+    label: 'AI Script Converter',
+    path: '/script-converter',
+    icon: <FileText className="h-5 w-5" />,
+    color: 'text-violet-500',
+  },
+  {
+    label: 'Convert Audio to SRT', path: '/audio-to-srt', icon: <Subtitles className="h-5 w-5" />, color: 'text-cyan-500',
+  },
+  {
+    label: 'Audio to Script', path: '/audio-to-script', icon: <FileAudio className="h-5 w-5" />, color: 'text-blue-500',
+  },
+  {
+    label: 'Extract Audio', path: '/extract-audio', icon: <Scissors className="h-5 w-5" />, color: 'text-emerald-500',
+  },
+  {
     label: 'Settings / About',
     path: '/settings',
     icon: <Settings className="h-5 w-5" />,
@@ -55,59 +76,61 @@ const navItems: NavItem[] = [
   },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
   return (
     <aside
-      className={`${
-        collapsed ? 'w-16' : 'w-56'
-      } flex flex-col border-r border-border bg-background transition-all duration-200 ease-in-out shrink-0`}
+      id="app-navigation"
+      aria-label="Điều hướng ứng dụng"
+      className={`fixed inset-y-0 left-0 z-50 w-56 ${open ? 'translate-x-0 visible' : '-translate-x-full invisible md:visible'} md:static md:translate-x-0 ${collapsed ? 'md:w-16' : 'md:w-16 lg:w-56'} flex flex-col min-h-0 border-r border-border bg-background transition-[width,transform] duration-200 ease-in-out shrink-0`}
     >
       {/* Logo */}
       <div className="h-14 flex items-center px-3 border-b border-border gap-2">
         <div className="p-1.5 bg-red-600 rounded-lg text-white shadow shrink-0">
           <Youtube className="h-5 w-5" />
         </div>
-        {!collapsed && (
-          <div className="overflow-hidden">
-            <h1 className="font-extrabold text-sm tracking-tight whitespace-nowrap">CrawlData</h1>
-            <p className="text-[10px] text-muted-foreground whitespace-nowrap">Tools Manager</p>
-          </div>
-        )}
+        <div className={`overflow-hidden ${collapsed ? 'md:hidden' : 'md:hidden lg:block'}`}>
+          <h1 className="font-extrabold text-sm tracking-tight whitespace-nowrap">CrawlData</h1>
+          <p className="text-[10px] text-muted-foreground whitespace-nowrap">Tools Manager</p>
+        </div>
+        <Button variant="ghost" size="icon" onClick={onClose} className="ml-auto h-8 w-8 shrink-0 md:hidden" aria-label="Đóng menu"><X className="h-4 w-4" /></Button>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-2 px-2 space-y-1 overflow-y-auto">
+      <nav className="flex-1 min-h-0 py-2 px-2 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path || (item.path === '/' && location.pathname === '/youtube-tools');
           return (
             <button
               key={item.path}
-              onClick={() => navigate(item.path)}
+              onClick={() => { navigate(item.path); onClose(); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 isActive
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
               }`}
-              title={collapsed ? item.label : undefined}
+              title={item.label}
+              aria-label={item.label}
+              aria-current={isActive ? 'page' : undefined}
             >
               <span className={`shrink-0 ${isActive ? item.color : ''}`}>{item.icon}</span>
-              {!collapsed && <span className="truncate">{item.label}</span>}
+              <span className={`truncate ${collapsed ? 'md:hidden' : 'md:hidden lg:inline'}`}>{item.label}</span>
             </button>
           );
         })}
       </nav>
 
       {/* Collapse toggle */}
-      <div className="border-t border-border p-2">
+      <div className="hidden lg:block border-t border-border p-2">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setCollapsed(!collapsed)}
           className="w-full flex items-center justify-center h-8"
+          aria-label={collapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>

@@ -1,4 +1,5 @@
 import { api } from './youtube.service';
+import { TIMEOUT_DOWNLOAD, TIMEOUT_SCAN } from '@/config/axios';
 import axios from 'axios';
 
 export interface TikTokResponse {
@@ -38,7 +39,7 @@ export interface TikTokChannelResponse {
 class TikTokService {
   async getChannelVideos(url: string, limit?: number): Promise<TikTokChannelResponse> {
     try {
-      const response = await api.post('/tiktok/channel-videos', { url, limit });
+      const response = await api.post('/tiktok/channel-videos', { url, limit }, { timeout: TIMEOUT_SCAN });
       const data = response.data;
 
       if (Array.isArray(data)) {
@@ -64,7 +65,7 @@ class TikTokService {
 
   async getAudio(url: string): Promise<TikTokResponse> {
     try {
-      const response = await api.post('/tiktok/audio', { url }, { responseType: 'blob' });
+      const response = await api.post('/tiktok/audio', { url }, { responseType: 'blob', timeout: TIMEOUT_DOWNLOAD });
 
       const contentDisposition = response.headers['content-disposition'];
       let filename = 'tiktok_audio.mp3';
@@ -89,7 +90,7 @@ class TikTokService {
 
   async getVideo(url: string): Promise<TikTokResponse> {
     try {
-      const response = await api.post('/tiktok/video', { url }, { responseType: 'blob' });
+      const response = await api.post('/tiktok/video', { url }, { responseType: 'blob', timeout: TIMEOUT_DOWNLOAD });
 
       const contentDisposition = response.headers['content-disposition'];
       let filename = 'tiktok_video.mp4';

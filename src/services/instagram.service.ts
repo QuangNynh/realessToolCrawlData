@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { api } from './youtube.service'
+import { TIMEOUT_DOWNLOAD, TIMEOUT_SCAN } from '@/config/axios'
 
 export interface InstagramInfoResponse {
   success: boolean
@@ -54,7 +55,8 @@ class InstagramService {
         '/instagram/audio',
         { url },
         {
-          responseType: 'blob'
+          responseType: 'blob',
+          timeout: TIMEOUT_DOWNLOAD
         }
       )
 
@@ -89,7 +91,8 @@ class InstagramService {
         '/instagram/video',
         { url },
         {
-          responseType: 'blob'
+          responseType: 'blob',
+          timeout: TIMEOUT_DOWNLOAD
         }
       )
 
@@ -123,7 +126,7 @@ class InstagramService {
       const response = await api.post(
         '/instagram/channel',
         { username },
-        { params: { type, page, pageSize } }
+        { params: { type, page, pageSize }, timeout: TIMEOUT_SCAN }
       )
       return response.data
     } catch (error) {
@@ -145,7 +148,8 @@ class InstagramService {
       { username },
       {
         params: { type },
-        responseType: 'blob'
+        responseType: 'blob',
+        timeout: TIMEOUT_SCAN
       }
     )
 
@@ -170,7 +174,8 @@ class InstagramService {
       { username },
       {
         params: { type },
-        responseType: 'blob'
+        responseType: 'blob',
+        timeout: TIMEOUT_DOWNLOAD
       }
     )
 

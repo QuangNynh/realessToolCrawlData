@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Card } from '@/components/youtube-ui/card'
 import { Textarea } from '@/components/youtube-ui/textarea'
 import { Button } from '@/components/youtube-ui/button'
@@ -23,6 +23,60 @@ import {
   DialogTitle
 } from '@/components/youtube-ui/dialog'
 
+const PAGE_SIZE_OPTIONS = [50, 100] as const
+
+const extractVideoId = (url: string): string | null => {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\s?]+)/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ]
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match) return match[1]
+  }
+  return null
+}
+
+const decodeHtmlEntities = (text: string) => {
+  return text
+    .replace(/&amp;#39;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+}
+
+const formatTime = (seconds: number) => {
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+const formatSrtTime = (seconds: number) => {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = Math.floor(seconds % 60)
+  const milliseconds = Math.floor((seconds % 1) * 1000)
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`
+}
+
+const buildSrtContent = (data: TranscriptResponse) => {
+  if (!data.success || !data.transcript) return null
+  return data.transcript
+    .map((item, idx) => {
+      const startTime = formatSrtTime(item.offset)
+      const nextItem = data.transcript[idx + 1]
+      const endTime = nextItem
+        ? formatSrtTime(nextItem.offset - 0.001)
+        : formatSrtTime(item.offset + item.duration)
+      let text = decodeHtmlEntities(item.text)
+      text = text.replace(/\[Music\]/gi, '')
+      return `${idx + 1}\n${startTime} --> ${endTime}\n${text}\n`
+    })
+    .join('\n')
+}
+
 export const FormatUrls = () => {
   const [urlText, setUrlText] = useState('')
   const [isFormatted, setIsFormatted] = useState(false)
@@ -32,33 +86,15 @@ export const FormatUrls = () => {
   const [videoToDelete, setVideoToDelete] = useState<string | null>(null)
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
 
-  const extractVideoId = (url: string): string | null => {
-    // Extract video ID from various YouTube URL formats
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\s?]+)/,
-      /^([a-zA-Z0-9_-]{11})$/ // Direct video ID
-    ]
-
-    for (const pattern of patterns) {
-      const match = url.match(pattern)
-      if (match) return match[1]
-    }
-    return null
-  }
-
   const formatUrls = () => {
     if (!urlText.trim()) {
       toast.error('Please enter URLs')
       return
     }
-
-    // Split by various delimiters: comma, space, newline, tab
     const urls = urlText
       .split(/[\s,\n\t]+/)
       .map((url) => url.trim())
       .filter((url) => url.length > 0)
-
-    // Join with ', '
     const formattedUrls = urls.join(', ')
     setUrlText(formattedUrls)
     setIsFormatted(true)
@@ -71,15 +107,12 @@ export const FormatUrls = () => {
       toast.error('Please enter URLs')
       return
     }
-
     if (!isFormatted) {
       toast.error('Please format URLs first')
       return
     }
-
     setIsLoading(true)
     try {
-      // Extract video IDs from URLs
       const urls = urlText
         .split(/[\s,\n\t]+/)
         .map((url) => url.trim())
@@ -87,14 +120,11 @@ export const FormatUrls = () => {
       const videoIds = urls
         .map((url) => extractVideoId(url))
         .filter((id): id is string => id !== null)
-
       if (videoIds.length === 0) {
         toast.error('No valid YouTube URLs found')
         setIsLoading(false)
         return
       }
-
-      // Call API
       const response = await youtubeService.getTranscripts(videoIds)
       setTranscriptData(response)
       toast.success(`Fetched ${response.length} transcripts`)
@@ -106,7 +136,7 @@ export const FormatUrls = () => {
     }
   }
 
-  const copyToClipboard = async (text: string, label: string) => {
+  const copyToClipboard = useCallback(async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text)
       toast.success(`${label} copied!`)
@@ -114,46 +144,27 @@ export const FormatUrls = () => {
       console.log(error)
       toast.error('Failed to copy')
     }
-  }
+  }, [])
 
-  const decodeHtmlEntities = (text: string) => {
-    return text
-      .replace(/&amp;#39;/g, "'")
-      .replace(/&#39;/g, "'")
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-  }
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-
-  const copyTranscriptTimeline = (data: TranscriptResponse) => {
+  const copyTranscriptTimeline = useCallback((data: TranscriptResponse) => {
     if (!data.success || !data.transcript) {
       toast.error('No transcript available')
       return
     }
-
     const timelineText = data.transcript
       .map((item) => `${formatTime(item.offset)} - ${decodeHtmlEntities(item.text)}`)
       .join('\n')
-
     copyToClipboard(timelineText, 'Timeline transcript')
-  }
+  }, [copyToClipboard])
 
-  const copyTranscriptText = (data: TranscriptResponse) => {
+  const copyTranscriptText = useCallback((data: TranscriptResponse) => {
     if (!data.success || !data.transcript) {
       toast.error('No transcript available')
       return
     }
-
     const plainText = data.transcript.map((item) => decodeHtmlEntities(item.text)).join(' ')
     copyToClipboard(plainText, 'Transcript text')
-  }
+  }, [copyToClipboard])
 
   const handleDelete = (videoId: string) => {
     setVideoToDelete(videoId)
@@ -174,37 +185,12 @@ export const FormatUrls = () => {
     setVideoToDelete(null)
   }
 
-  const formatSrtTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    const secs = Math.floor(seconds % 60)
-    const milliseconds = Math.floor((seconds % 1) * 1000)
-
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`
-  }
-
-  const exportToSrt = (data: TranscriptResponse, index: number) => {
-    if (!data.success || !data.transcript) {
+  const exportToSrt = useCallback((data: TranscriptResponse, index: number) => {
+    const srtContent = buildSrtContent(data)
+    if (!srtContent) {
       toast.error('No transcript available')
       return
     }
-
-    const srtContent = data.transcript
-      .map((item, idx) => {
-        const startTime = formatSrtTime(item.offset)
-        const nextItem = data.transcript[idx + 1]
-        const endTime = nextItem
-          ? formatSrtTime(nextItem.offset - 0.001)
-          : formatSrtTime(item.offset + item.duration)
-        let text = decodeHtmlEntities(item.text)
-
-        // Replace [Music] with empty string
-        text = text.replace(/\[Music\]/gi, '')
-
-        return `${idx + 1}\n${startTime} --> ${endTime}\n${text}\n`
-      })
-      .join('\n')
-
     const blob = new Blob([srtContent], { type: 'text/plain;charset=utf-8' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
@@ -212,71 +198,53 @@ export const FormatUrls = () => {
     link.click()
     URL.revokeObjectURL(link.href)
     toast.success(`Exported ${index}.srt`)
-  }
+  }, [])
 
-  const exportToFile = (data: TranscriptResponse[], filename: string) => {
+  const exportToFile = useCallback((data: TranscriptResponse[], filename: string) => {
     const content = data
       .map((item, index) => {
         if (!item.success || !item.metadata) return null
-
         const url = `https://www.youtube.com/watch?v=${item.videoId}`
         const title = item.metadata.title
         const transcript = item.transcript?.map((t) => decodeHtmlEntities(t.text)).join(' ') ?? ''
-
         return `${index + 1}.\n${url}\n\n${title}\n\n${transcript}\n\n\n\n`
       })
       .filter(Boolean)
       .join('\n')
-
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     link.download = filename
     link.click()
     URL.revokeObjectURL(link.href)
-  }
+  }, [])
 
   const handleExportAllSrt = async () => {
     if (transcriptData.length === 0) {
       toast.error('No data to export')
       return
     }
-
     const zip = new JSZip()
     let exportedCount = 0
-
     for (let i = 0; i < transcriptData.length; i++) {
       const data = transcriptData[i]
       if (data.success && data.transcript && data.transcript.length > 0) {
-        const srtContent = data.transcript
-          .map((item, idx) => {
-            const startTime = formatSrtTime(item.offset)
-            const nextItem = data.transcript[idx + 1]
-            const endTime = nextItem
-              ? formatSrtTime(nextItem.offset - 0.001)
-              : formatSrtTime(item.offset + item.duration)
-            let text = decodeHtmlEntities(item.text)
-
-            // Replace [Music] with empty string
-            text = text.replace(/\[Music\]/gi, '')
-
-            return `${idx + 1}\n${startTime} --> ${endTime}\n${text}\n`
-          })
-          .join('\n')
-
-        zip.file(`${i + 1}.srt`, srtContent)
-        exportedCount++
+        const srtContent = buildSrtContent(data)
+        if (srtContent) {
+          zip.file(`${i + 1}.srt`, srtContent)
+          exportedCount++
+        }
       }
     }
-
     if (exportedCount > 0) {
       try {
         const blob = await zip.generateAsync({ type: 'blob' })
         const link = document.createElement('a')
-        link.href = URL.createObjectURL(blob)
+        const href = URL.createObjectURL(blob)
+        link.href = href
         link.download = `subtitles-${Date.now()}.zip`
         link.click()
-        URL.revokeObjectURL(link.href)
+        URL.revokeObjectURL(href)
         toast.success(`Exported ${exportedCount} SRT files in ZIP`)
       } catch (error) {
         console.error(error)
@@ -292,59 +260,38 @@ export const FormatUrls = () => {
       toast.error('No data to export')
       return
     }
-
     const zip = new JSZip()
     let exportedCount = 0
     let failedCount = 0
     const loadingToast = toast.loading('Downloading thumbnails...')
-
     try {
       for (let i = 0; i < transcriptData.length; i++) {
         const data = transcriptData[i]
-        if (
-          data.success &&
-          data.metadata &&
-          data.metadata.thumbnails &&
-          data.metadata.thumbnails.length > 0
-        ) {
+        if (data.success && data.metadata && data.metadata.thumbnails && data.metadata.thumbnails.length > 0) {
           try {
-            // Lấy thumbnail đầu tiên
             const thumbnailUrl = data.metadata.thumbnails[0].url
-
-            // Tải ảnh qua backend API để tránh CORS
             const blob = await youtubeService.downloadImage(thumbnailUrl)
-
-            // Lấy extension từ URL
             const urlParts = thumbnailUrl.split('.')
             const extension = urlParts[urlParts.length - 1].split('?')[0] || 'webp'
-
-            // Thêm vào ZIP với tên là số thứ tự
             zip.file(`${i + 1}.${extension}`, blob)
             exportedCount++
-
-            // Update loading message
-            toast.loading(`Downloading thumbnails... (${exportedCount}/${transcriptData.length})`, {
-              id: loadingToast
-            })
+            toast.loading(`Downloading thumbnails... (${exportedCount}/${transcriptData.length})`, { id: loadingToast })
           } catch (error) {
             console.error(`Failed to download thumbnail for video ${i + 1}:`, error)
             failedCount++
           }
         }
       }
-
       if (exportedCount > 0) {
         toast.loading('Creating ZIP file...', { id: loadingToast })
-
         const zipBlob = await zip.generateAsync({ type: 'blob' })
         const link = document.createElement('a')
-        link.href = URL.createObjectURL(zipBlob)
+        const href = URL.createObjectURL(zipBlob)
+        link.href = href
         link.download = `thumbnails-${Date.now()}.zip`
         link.click()
-        URL.revokeObjectURL(link.href)
-
+        URL.revokeObjectURL(href)
         toast.dismiss(loadingToast)
-
         if (failedCount > 0) {
           toast.success(`Exported ${exportedCount} thumbnails (${failedCount} failed)`)
         } else {
@@ -366,13 +313,11 @@ export const FormatUrls = () => {
       toast.error('No data to export')
       return
     }
-
     const successData = transcriptData.filter((item) => item.success)
     if (successData.length === 0) {
       toast.error('No successful transcripts to export')
       return
     }
-
     exportToFile(successData, `youtube-transcripts-all-${Date.now()}.txt`)
     toast.success(`Exported ${successData.length} transcripts`)
   }
@@ -381,23 +326,16 @@ export const FormatUrls = () => {
     const startIndex = pagination.pageIndex * pagination.pageSize
     const endIndex = startIndex + pagination.pageSize
     const pageData = transcriptData.slice(startIndex, endIndex)
-
     const successData = pageData.filter((item) => item.success)
     if (successData.length === 0) {
       toast.error('No successful transcripts on this page')
       return
     }
-
-    exportToFile(
-      successData,
-      `youtube-transcripts-page-${pagination.pageIndex + 1}-${Date.now()}.txt`
-    )
-    toast.success(
-      `Exported ${successData.length} transcripts from page ${pagination.pageIndex + 1}`
-    )
+    exportToFile(successData, `youtube-transcripts-page-${pagination.pageIndex + 1}-${Date.now()}.txt`)
+    toast.success(`Exported ${successData.length} transcripts from page ${pagination.pageIndex + 1}`)
   }
 
-  const columns: ColumnDef<TranscriptResponse>[] = [
+  const columns = useMemo<ColumnDef<TranscriptResponse>[]>(() => [
     {
       accessorKey: 'videoId',
       header: 'Video ID',
@@ -480,7 +418,7 @@ export const FormatUrls = () => {
             <Button
               variant='ghost'
               size='sm'
-              onClick={() => exportToSrt(data, transcriptData.indexOf(data) + 1)}
+              onClick={() => exportToSrt(data, row.index + 1)}
               className='h-8 px-2'
               title='Export SRT'
             >
@@ -499,11 +437,11 @@ export const FormatUrls = () => {
         )
       }
     }
-  ]
+  ], [copyToClipboard, copyTranscriptTimeline, copyTranscriptText, exportToSrt])
 
   return (
     <div className='space-y-4'>
-      <Card className='p-6'>
+      <Card className='min-w-0 p-4 sm:p-6'>
         <div className='space-y-4'>
           <div>
             <label className='text-sm font-medium mb-2 block'>
@@ -520,7 +458,7 @@ export const FormatUrls = () => {
             />
           </div>
 
-          <div className='flex gap-2'>
+          <div className='flex flex-wrap gap-2'>
             <Button onClick={formatUrls}>Format URLs</Button>
             <Button
               onClick={handleTranscript}
@@ -570,7 +508,7 @@ export const FormatUrls = () => {
       </Card>
 
       {transcriptData.length > 0 && (
-        <Card className='p-6'>
+        <Card className='min-w-0 p-4 sm:p-6'>
           <div className='space-y-4'>
             <div className='flex justify-end'>
               <Button onClick={handleExportPage} variant='outline' size='sm'>
@@ -581,7 +519,7 @@ export const FormatUrls = () => {
             <DataTable
               columns={columns}
               data={transcriptData}
-              pageSizeOptions={[50, 100]}
+              pageSizeOptions={PAGE_SIZE_OPTIONS as unknown as number[]}
               pagination={pagination}
               onPaginationChange={setPagination}
             />

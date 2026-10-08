@@ -203,7 +203,7 @@ export const InstagramPage = () => {
         if (blob) {
           URL.revokeObjectURL(audioUrl)
         }
-      }, 100)
+      }, 5_000)
     } catch (error) {
       console.error('Download failed:', error)
       toast.error('Failed to download audio file')
@@ -466,22 +466,9 @@ export const InstagramPage = () => {
       const index = i + 1
 
       try {
-        updateItemStatus(url, { status: 'loading', progress: 0 })
-
-        const progressInterval = setInterval(() => {
-          setAudioData((prev) =>
-            prev.map((item) => {
-              if (item.videoUrl === url && item.status === 'loading') {
-                const newProgress = Math.min(item.progress + 15, 90)
-                return { ...item, progress: newProgress }
-              }
-              return item
-            })
-          )
-        }, 300)
+        updateItemStatus(url, { status: 'loading', progress: 50 })
 
         const response = await instagramService.getAudio(url)
-        clearInterval(progressInterval)
 
         if (response.success && response.audioUrl) {
           updateItemStatus(url, {
@@ -552,23 +539,10 @@ export const InstagramPage = () => {
 
       try {
         setVideoDownloadData((prev) =>
-          prev.map((item) => (item.videoUrl === url ? { ...item, status: 'loading', progress: 0 } : item))
+          prev.map((item) => (item.videoUrl === url ? { ...item, status: 'loading', progress: 50 } : item))
         )
 
-        const progressInterval = setInterval(() => {
-          setVideoDownloadData((prev) =>
-            prev.map((item) => {
-              if (item.videoUrl === url && item.status === 'loading') {
-                const newProgress = Math.min(item.progress + 15, 90)
-                return { ...item, progress: newProgress }
-              }
-              return item
-            })
-          )
-        }, 300)
-
         const response = await instagramService.getVideo(url)
-        clearInterval(progressInterval)
 
         if (response.success && response.videoUrl) {
           setVideoDownloadData((prev) =>
@@ -1311,13 +1285,13 @@ export const InstagramPage = () => {
 
         {/* PROFILE/CHANNEL SCANNER TAB */}
         <TabsContent value='channel' className='space-y-4'>
-          <Card className='p-6 shadow-md border-muted/50 bg-card/60 backdrop-blur-sm'>
+          <Card className='min-w-0 p-4 sm:p-6 shadow-md border-muted/50 bg-card/60 backdrop-blur-sm'>
             <div className='space-y-4'>
               <div>
                 <label className='text-sm font-semibold mb-2 block text-foreground'>
                   Nhập URL kênh hoặc Username Instagram (ví dụ: https://www.instagram.com/pray hoặc pray)
                 </label>
-                <div className='flex gap-2'>
+                <div className='flex flex-wrap gap-2'>
                   <div className='relative flex-1'>
                     <Instagram className='absolute left-3 top-3 h-4 w-4 text-muted-foreground' />
                     <Input
@@ -1368,7 +1342,7 @@ export const InstagramPage = () => {
           </Card>
 
           {channelData?.user && (
-            <Card className='p-6 border-muted shadow-md bg-card/40 backdrop-blur-md flex items-center gap-4'>
+            <Card className='min-w-0 p-4 sm:p-6 border-muted shadow-md bg-card/40 backdrop-blur-md flex items-center gap-4'>
               <img
                 src={channelData.user.profilePicUrl}
                 alt={channelData.user.username}
@@ -1474,7 +1448,7 @@ export const InstagramPage = () => {
 
         {/* BULK METADATA INFO TAB */}
         <TabsContent value='bulk-info' className='space-y-4'>
-          <Card className='p-6 shadow-md border-muted/50 bg-card/60 backdrop-blur-sm'>
+          <Card className='min-w-0 p-4 sm:p-6 shadow-md border-muted/50 bg-card/60 backdrop-blur-sm'>
             <div className='space-y-4'>
               <div>
                 <label className='text-sm font-semibold mb-2 block text-foreground'>
@@ -1492,7 +1466,7 @@ export const InstagramPage = () => {
                 />
               </div>
 
-              <div className='flex gap-2'>
+              <div className='flex flex-wrap gap-2'>
                 <Button
                   onClick={formatBulkInfoUrls}
                   disabled={isProcessingInfo}
@@ -1526,7 +1500,7 @@ export const InstagramPage = () => {
                   Kết quả ({bulkInfoData.filter((i) => i.status === 'success').length}/{bulkInfoData.length})
                 </h3>
                 {bulkInfoData.some((i) => i.status === 'success') && (
-                  <div className='flex gap-2'>
+                  <div className='flex flex-wrap gap-2'>
                     <Button
                       onClick={handleExportTxt}
                       className='bg-zinc-600 hover:bg-zinc-700 text-white text-xs h-9 px-3 flex items-center gap-1.5 shadow'
@@ -1559,7 +1533,7 @@ export const InstagramPage = () => {
 
         {/* BULK VIDEO DOWNLOADER TAB */}
         <TabsContent value='bulk-video' className='space-y-4'>
-          <Card className='p-6 shadow-md border-muted/50 bg-card/60 backdrop-blur-sm'>
+          <Card className='min-w-0 p-4 sm:p-6 shadow-md border-muted/50 bg-card/60 backdrop-blur-sm'>
             <div className='space-y-4'>
               <div>
                 <label className='text-sm font-semibold mb-2 block text-foreground'>
@@ -1577,7 +1551,7 @@ export const InstagramPage = () => {
                 />
               </div>
 
-              <div className='flex gap-2'>
+              <div className='flex flex-wrap gap-2'>
                 <Button
                   onClick={formatVideoUrls}
                   disabled={isProcessingVideo}
@@ -1619,7 +1593,7 @@ export const InstagramPage = () => {
 
         {/* BULK DOWNLOADER TAB */}
         <TabsContent value='bulk' className='space-y-4'>
-          <Card className='p-6 shadow-md border-muted/50 bg-card/60 backdrop-blur-sm'>
+          <Card className='min-w-0 p-4 sm:p-6 shadow-md border-muted/50 bg-card/60 backdrop-blur-sm'>
             <div className='space-y-4'>
               <div>
                 <label className='text-sm font-semibold mb-2 block text-foreground'>
@@ -1637,7 +1611,7 @@ export const InstagramPage = () => {
                 />
               </div>
 
-              <div className='flex gap-2'>
+              <div className='flex flex-wrap gap-2'>
                 <Button
                   onClick={formatUrls}
                   disabled={isProcessing}

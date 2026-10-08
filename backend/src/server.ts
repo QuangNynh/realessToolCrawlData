@@ -4,6 +4,13 @@ import axios from 'axios';
 import { loadSettings } from './config';
 import { apiRouter } from './routes';
 import { instagramService } from './instagram.service';
+import { youtubeDownloads } from './youtube-downloads';
+import { getAiGateway, shutdownAiGateway } from './ai-instance';
+import { mountAiRoutes } from './ai-routes';
+import { getScriptConverter, shutdownScriptConverter } from './script-converter-instance';
+import { mountScriptConverterRoutes } from './script-converter-routes';
+import { getMediaJobs, shutdownMediaJobs } from './media-instance';
+import { mountMediaRoutes } from './media-routes';
 
 export function createServer() {
   for (const key of ['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'FTP_PROXY', 'http_proxy', 'https_proxy', 'all_proxy', 'ftp_proxy']) {
@@ -18,6 +25,26 @@ export function createServer() {
   app.use(cors({ exposedHeaders: ['Content-Disposition', 'Content-Length'] }));
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+  mountAiRoutes(app, getAiGateway);
+  mountScriptConverterRoutes(app, getScriptConverter);
+  mountMediaRoutes(app, getMediaJobs);
+
+  // Filesystem destinations come from trusted Electron IPC, never from a web origin.
+  app.all('/api/v1/internal/youtube-downloads', (req, res) => {
+    const remote = req.socket.remoteAddress;
+    if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remote || '') || req.headers.origin) return res.status(403).json({ success: false });
+    try {
+      if (req.method === 'GET') return res.json(youtubeDownloads.snapshot());
+      if (req.method !== 'POST') return res.sendStatus(405);
+      const { action, id, ...input } = req.body || {};
+      if (action === 'create') return res.json(youtubeDownloads.add(input));
+      if (action === 'clear-history') return res.json(youtubeDownloads.clearHistory(input.kind));
+      return res.json(youtubeDownloads.control(id, action));
+    } catch (error) {
+      return res.status(400).json({ success: false, message: error instanceof Error ? error.message : String(error) });
+    }
+  });
 
   app.post('/api/v1/internal/instagram-session', (req, res) => {
     const remote = req.socket.remoteAddress;
@@ -66,6 +93,7 @@ export function startServer(port?: number): Promise<import('http').Server> {
   const app = createServer();
   return new Promise((resolve, reject) => {
     const server = app.listen(listenPort, '127.0.0.1');
+    server.once('close', () => { youtubeDownloads.shutdown(); shutdownScriptConverter(); shutdownAiGateway(); shutdownMediaJobs(); });
     server.once('listening', () => {
       console.log(`[Backend] Server running on http://127.0.0.1:${listenPort}/api/v1`);
       resolve(server);
@@ -76,7 +104,11 @@ export function startServer(port?: number): Promise<import('http').Server> {
 
 // Nếu chạy trực tiếp từ CLI (tsx watch backend/src/server.ts)
 if (require.main === module) {
-  void startServer().catch(error => {
+  void startServer().then(server => {
+    const shutdown = () => { youtubeDownloads.shutdown(); shutdownScriptConverter(); shutdownAiGateway(); shutdownMediaJobs(); server.close(); };
+    process.once('SIGTERM', shutdown);
+    process.once('SIGINT', shutdown);
+  }).catch(error => {
     console.error('[Backend] Failed to start:', error);
     process.exitCode = 1;
   });

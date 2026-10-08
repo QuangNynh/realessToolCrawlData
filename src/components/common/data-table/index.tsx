@@ -84,7 +84,7 @@ export function DataTable<TData, TValue>({
   })
 
   return (
-    <div className='flex flex-col gap-4'>
+    <div className='flex min-w-0 flex-col gap-4'>
       <Table className='border-b'>
         <TableHeader className='bg-sidebar-primary sticky top-0 z-10 '>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -124,14 +124,13 @@ export function DataTable<TData, TValue>({
         </TableBody>
       </Table>
 
-      <div className='flex items-center justify-between px-2'>
-        <div className='flex-1 text-sm text-muted-foreground'>
-          {!manualPagination &&
-            table.getFilteredSelectedRowModel().rows.length > 0 &&
-            `${table.getFilteredSelectedRowModel().rows.length} of ${table.getFilteredRowModel().rows.length} row(s) selected.`}
-        </div>
-
-        <div className='flex items-center gap-6 lg:gap-8'>
+      <div className='flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+        {!manualPagination && table.getFilteredSelectedRowModel().rows.length > 0 && (
+          <div className='text-sm text-muted-foreground'>
+            {`${table.getFilteredSelectedRowModel().rows.length} of ${table.getFilteredRowModel().rows.length} row(s) selected.`}
+          </div>
+        )}
+        <div className='min-w-0 w-full sm:ml-auto sm:w-auto'>
           <DataTablePagination table={table} pageSizeOptions={pageSizeOptions} />
         </div>
       </div>

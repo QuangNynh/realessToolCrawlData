@@ -50,7 +50,7 @@ function Pagination({ count, page, pageSize, onPage, onPageSize, sizes = [50, 10
   count: number; page: number; pageSize: number; onPage: (page: number) => void; onPageSize: (size: number) => void; sizes?: number[];
 }) {
   const pages = Math.max(1, Math.ceil(count / pageSize));
-  return <div className="flex items-center justify-end gap-2 p-3 text-sm text-muted-foreground">
+  return <div className="flex items-center justify-end flex-wrap gap-2 p-3 text-sm text-muted-foreground">
     <span>{count ? `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, count)} / ${count}` : '0 / 0'}</span>
     <Button size="sm" variant="outline" disabled={page === 0} onClick={() => onPage(page - 1)}>Trước</Button>
     <span>{page + 1}/{pages}</span>
@@ -110,7 +110,7 @@ export function PinterestPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    if (blob) setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    if (blob) setTimeout(() => URL.revokeObjectURL(blobUrl), 5_000);
   };
 
   const formatNumber = (n?: number) => (n == null ? '-' : new Intl.NumberFormat().format(n));
@@ -245,7 +245,7 @@ export function PinterestPage() {
   );
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 min-w-0 max-w-7xl mx-auto">
       <div className="flex items-center gap-3 border-b border-border pb-4">
         <div className="p-2 bg-red-600 rounded-lg text-white shadow-md"><PinterestIcon className="h-6 w-6" /></div>
         <div>
@@ -264,10 +264,10 @@ export function PinterestPage() {
 
         {/* Channel Tab */}
         <TabsContent value="channel" className="space-y-4">
-          <Card className="p-6">
+          <Card className="min-w-0 p-4 sm:p-6">
             <label className="text-sm font-semibold block mb-2">Nhập URL kênh Pinterest</label>
             <div className="flex flex-wrap gap-2">
-              <Input value={channelUrl} onChange={e => setChannelUrl(e.target.value)} placeholder="https://www.pinterest.com/username/_created/" className="flex-1 min-w-60 h-11" disabled={channelLoading} />
+              <Input value={channelUrl} onChange={e => setChannelUrl(e.target.value)} placeholder="https://www.pinterest.com/username/_created/" className="w-full min-w-0 sm:flex-1 sm:min-w-60 h-11" disabled={channelLoading} />
               <Button onClick={handleGetChannel} disabled={channelLoading} className="h-11 bg-red-600 hover:bg-red-700 text-white">
                 {channelLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Đang quét...</> : 'Quét kênh'}
               </Button>
@@ -384,10 +384,10 @@ export function PinterestPage() {
 
         {/* Audio Tab */}
         <TabsContent value="audio" className="space-y-4">
-          <Card className="p-6">
+          <Card className="min-w-0 p-4 sm:p-6">
             <label className="text-sm font-semibold block mb-2">Nhập URLs Pinterest để tải audio</label>
             <Textarea value={audioUrlText} onChange={e => { setAudioUrlText(e.target.value); setIsAudioFormatted(false); }} placeholder="URLs Pinterest..." className="min-h-[120px] font-mono text-sm mb-3" disabled={isProcessingAudio} />
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button onClick={() => { const u = parseUrls(audioUrlText); if (!u.length) { toast.error('Vui lòng nhập link'); return; } setAudioUrlText(u.join(', ')); setIsAudioFormatted(true); toast.success('Đã định dạng'); }} variant="outline" disabled={isProcessingAudio}>Định dạng URL</Button>
               <Button onClick={() => processBulk('audio', audioUrlText, setAudioData, setIsProcessingAudio)} disabled={!isAudioFormatted || isProcessingAudio} className="bg-red-600 hover:bg-red-700 text-white">
                 {isProcessingAudio ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Đang tải...</> : 'Tải Audio Hàng Loạt'}
@@ -399,10 +399,10 @@ export function PinterestPage() {
 
         {/* Video Tab */}
         <TabsContent value="video" className="space-y-4">
-          <Card className="p-6">
+          <Card className="min-w-0 p-4 sm:p-6">
             <label className="text-sm font-semibold block mb-2">Nhập URLs Pinterest để tải video</label>
             <Textarea value={videoUrlText} onChange={e => { setVideoUrlText(e.target.value); setIsVideoFormatted(false); }} placeholder="URLs Pinterest..." className="min-h-[120px] font-mono text-sm mb-3" disabled={isProcessingVideo} />
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button onClick={() => { const u = parseUrls(videoUrlText); if (!u.length) { toast.error('Vui lòng nhập link'); return; } setVideoUrlText(u.join(', ')); setIsVideoFormatted(true); toast.success('Đã định dạng'); }} variant="outline" disabled={isProcessingVideo}>Định dạng URL</Button>
               <Button onClick={() => processBulk('video', videoUrlText, setVideoData, setIsProcessingVideo)} disabled={!isVideoFormatted || isProcessingVideo} className="bg-red-600 hover:bg-red-700 text-white">
                 {isProcessingVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Đang tải...</> : 'Tải Video Hàng Loạt'}
@@ -414,10 +414,10 @@ export function PinterestPage() {
 
         {/* Image Tab */}
         <TabsContent value="image" className="space-y-4">
-          <Card className="p-6">
+          <Card className="min-w-0 p-4 sm:p-6">
             <label className="text-sm font-semibold block mb-2">Nhập URLs Pinterest để tải ảnh</label>
             <Textarea value={imageUrlText} onChange={e => { setImageUrlText(e.target.value); setIsImageFormatted(false); }} placeholder="URLs Pinterest..." className="min-h-[120px] font-mono text-sm mb-3" disabled={isProcessingImage} />
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button onClick={() => { const u = parseUrls(imageUrlText); if (!u.length) { toast.error('Vui lòng nhập link'); return; } setImageUrlText(u.join(', ')); setIsImageFormatted(true); toast.success('Đã định dạng'); }} variant="outline" disabled={isProcessingImage}>Định dạng URL</Button>
               <Button onClick={() => processBulk('image', imageUrlText, setImageData, setIsProcessingImage)} disabled={!isImageFormatted || isProcessingImage} className="bg-red-600 hover:bg-red-700 text-white">
                 {isProcessingImage ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Đang tải...</> : 'Tải Ảnh Hàng Loạt'}

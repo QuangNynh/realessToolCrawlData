@@ -1,4 +1,5 @@
 import { api } from './youtube.service';
+import { TIMEOUT_DOWNLOAD, TIMEOUT_SCAN } from '@/config/axios';
 
 export interface PinterestChannelUser {
   username: string;
@@ -118,13 +119,13 @@ export interface CheckTokenResponse {
 
 class PinterestService {
   async getChannel(url: string, type?: string, page?: number, pageSize?: number): Promise<PinterestChannelResponse> {
-    const response = await api.post('/pinterest/channel', { url, type, page, pageSize });
+    const response = await api.post('/pinterest/channel', { url, type, page, pageSize }, { timeout: TIMEOUT_SCAN });
     return response.data;
   }
 
   async getAudio(url: string): Promise<PinterestAudioResponse> {
     try {
-      const response = await api.post('/pinterest/audio', { url }, { responseType: 'blob' });
+      const response = await api.post('/pinterest/audio', { url }, { responseType: 'blob', timeout: TIMEOUT_DOWNLOAD });
 
       const contentDisposition = response.headers['content-disposition'];
       let filename = 'pinterest_audio.mp3';
@@ -149,7 +150,7 @@ class PinterestService {
 
   async getVideo(url: string): Promise<PinterestVideoResponse> {
     try {
-      const response = await api.post('/pinterest/video', { url }, { responseType: 'blob' });
+      const response = await api.post('/pinterest/video', { url }, { responseType: 'blob', timeout: TIMEOUT_DOWNLOAD });
 
       const contentDisposition = response.headers['content-disposition'];
       let filename = 'pinterest_video.mp4';
@@ -174,7 +175,7 @@ class PinterestService {
 
   async getImage(url: string): Promise<PinterestImageResponse> {
     try {
-      const response = await api.post('/pinterest/image', { url }, { responseType: 'blob' });
+      const response = await api.post('/pinterest/image', { url }, { responseType: 'blob', timeout: TIMEOUT_DOWNLOAD });
 
       const contentDisposition = response.headers['content-disposition'];
       let filename = 'pinterest_image.jpg';
@@ -198,7 +199,7 @@ class PinterestService {
   }
 
   async exportChannelExcel(url: string, type?: string): Promise<{ blob: Blob; filename: string }> {
-    const response = await api.post('/pinterest/channel/export', { url, type }, { responseType: 'blob' });
+    const response = await api.post('/pinterest/channel/export', { url, type }, { responseType: 'blob', timeout: TIMEOUT_SCAN });
 
     const contentDisposition = response.headers['content-disposition'];
     let filename = `pinterest_export_${Date.now()}.xlsx`;
@@ -211,7 +212,7 @@ class PinterestService {
   }
 
   async exportChannelImagesZip(url: string, type?: string): Promise<{ blob: Blob; filename: string }> {
-    const response = await api.post('/pinterest/channel/export-images', { url, type }, { responseType: 'blob' });
+    const response = await api.post('/pinterest/channel/export-images', { url, type }, { responseType: 'blob', timeout: TIMEOUT_DOWNLOAD });
 
     const contentDisposition = response.headers['content-disposition'];
     let filename = `pinterest_images_${Date.now()}.zip`;

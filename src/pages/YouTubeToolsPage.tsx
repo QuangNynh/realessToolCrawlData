@@ -15,13 +15,13 @@ export const YouTubeToolsPage = () => {
   }
 
   return (
-    <div className='youtube-page space-y-6 mx-auto w-full p-3 sm:p-6'>
+    <div className='youtube-page space-y-4 sm:space-y-6 mx-auto w-full min-w-0 p-3 sm:p-6'>
       <div className='flex items-center gap-3 border-b pb-4'>
         <div className='p-2 bg-gradient-to-tr from-red-500 to-red-600 rounded-lg text-white shadow-md shrink-0 animate-pulse'>
           <Youtube className='h-6 w-6' />
         </div>
-        <div>
-          <h1 className='text-2xl font-bold tracking-tight bg-gradient-to-tr from-red-600 to-orange-600 bg-clip-text text-transparent'>
+        <div className='min-w-0'>
+          <h1 className='text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-tr from-red-600 to-orange-600 bg-clip-text text-transparent'>
             YouTube Downloader & Tools
           </h1>
           <p className='text-muted-foreground text-sm'>

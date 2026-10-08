@@ -41,16 +41,8 @@ export function UpdateDialog() {
       if (action === 'download') setStatus((current) => ({ ...current, state: 'downloading', progress: undefined }));
       const next = await updater[action]();
       if (next) setStatus(next);
-    } catch (error) {
-      const details = error instanceof Error ? error.message : String(error);
-      const message = /404|latest.*yml|not found/i.test(details)
-        ? 'No published update is available on GitHub. Check the Release assets.'
-        : /ENOTFOUND|EAI_AGAIN|ECONN|ETIMEDOUT|network/i.test(details)
-          ? 'Cannot reach GitHub. Check your internet connection and try again.'
-          : /No handler registered|updater.*unavailable/i.test(details)
-            ? 'This app build cannot check updates. Install the latest CrawlData Setup manually once.'
-            : 'The update service could not complete this request. Please try again.';
-      setStatus((current) => ({ ...current, state: 'error', message }));
+    } catch {
+      setStatus((current) => ({ ...current, state: 'error', message: 'Unable to update. Please try again.' }));
     }
   };
 

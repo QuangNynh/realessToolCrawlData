@@ -16,8 +16,43 @@ const { youtubeToolsService } = require('../dist-backend/youtube-tools.service')
 const { instagramService } = require('../dist-backend/instagram.service');
 const axios = require('axios');
 const { createServer } = require('../dist-backend/server');
+const { youtubeDownloads } = require('../dist-backend/youtube-downloads');
 
 after(() => fs.rmSync(temporary, { recursive: true, force: true }));
+
+test('desktop YouTube downloads reject browser origins and accept trusted queue commands', async t => {
+  const calls = [];
+  const clearCalls = [];
+  t.mock.method(youtubeDownloads, 'add', input => { calls.push(input); return { id: 'queue-test', items: [] }; });
+  t.mock.method(youtubeDownloads, 'clearHistory', kind => { clearCalls.push(kind); return { ...youtubeDownloads.snapshot(), clearedBatches: 1, cleanupErrors: [] }; });
+  const server = createServer().listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const url = `http://127.0.0.1:${server.address().port}/api/v1/internal/youtube-downloads`;
+  const body = JSON.stringify({ action: 'create', urls: ['abcdefghijk'], kind: 'audio', directory: temporary });
+  let response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'http://untrusted.example' }, body });
+  assert.equal(response.status, 403);
+  assert.equal(calls.length, 0);
+  response = await fetch(url, { headers: { Origin: 'null' } });
+  assert.equal(response.status, 403);
+  response = await fetch(url);
+  assert.equal(response.status, 200);
+  assert.ok(Array.isArray((await response.json()).batches));
+  response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).id, 'queue-test');
+  assert.equal(calls[0].directory, temporary);
+  const clearBody = JSON.stringify({ action: 'clear-history', kind: 'audio' });
+  response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'http://untrusted.example' }, body: clearBody });
+  assert.equal(response.status, 403);
+  assert.equal(clearCalls.length, 0);
+  response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: clearBody });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).clearedBatches, 1);
+  assert.deepEqual(clearCalls, ['audio']);
+  response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pause', id: 'missing' }) });
+  assert.equal(response.status, 400);
+});
 
 test('YouTube tools remain available and scheduling endpoints are removed', async t => {
   const transcript = {

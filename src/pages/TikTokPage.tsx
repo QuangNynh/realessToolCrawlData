@@ -51,7 +51,7 @@ function Pagination({ count, page, pageSize, onPage, onPageSize }: {
   count: number; page: number; pageSize: number; onPage: (page: number) => void; onPageSize: (size: number) => void;
 }) {
   const pages = Math.max(1, Math.ceil(count / pageSize));
-  return <div className="flex items-center justify-end gap-2 p-3 text-sm text-muted-foreground">
+  return <div className="flex items-center justify-end flex-wrap gap-2 p-3 text-sm text-muted-foreground">
     <span>{count ? `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, count)} / ${count}` : '0 / 0'}</span>
     <Button size="sm" variant="outline" disabled={page === 0} onClick={() => onPage(page - 1)}>Trước</Button>
     <span>{page + 1}/{pages}</span>
@@ -103,7 +103,7 @@ export function TikTokPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    if (blob) setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    if (blob) setTimeout(() => URL.revokeObjectURL(blobUrl), 5_000);
   };
 
   const formatNumber = (n?: number) => (n === undefined || n === null ? '-' : new Intl.NumberFormat().format(n));
@@ -233,7 +233,7 @@ export function TikTokPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 min-w-0 max-w-7xl mx-auto">
       <div className="flex items-center gap-3 border-b border-border pb-4">
         <div className="p-2 bg-gradient-to-tr from-zinc-800 to-black rounded-lg text-white shadow-md"><TikTokIcon className="h-6 w-6" /></div>
         <div>
@@ -243,7 +243,7 @@ export function TikTokPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={tab => setSearchParams({ tab }, { replace: true })} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-auto p-1 max-w-[600px] mb-4">
+        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto p-1 max-w-[600px] mb-4">
           <TabsTrigger value="channel" className="flex items-center gap-1.5 py-2"><User className="h-4 w-4" /> Lấy thông tin kênh</TabsTrigger>
           <TabsTrigger value="audio" className="flex items-center gap-1.5 py-2"><Music className="h-4 w-4" /> Tải audio TikTok</TabsTrigger>
           <TabsTrigger value="video" className="flex items-center gap-1.5 py-2"><Video className="h-4 w-4" /> Tải video TikTok</TabsTrigger>
@@ -251,10 +251,10 @@ export function TikTokPage() {
 
         {/* Channel Tab */}
         <TabsContent value="channel" className="space-y-4">
-          <Card className="p-6">
+          <Card className="min-w-0 p-4 sm:p-6">
             <label className="text-sm font-semibold block mb-2">Nhập URL kênh TikTok</label>
             <div className="flex flex-wrap gap-2">
-              <Input value={channelUrl} onChange={e => setChannelUrl(e.target.value)} placeholder="https://www.tiktok.com/@username" className="flex-1 min-w-60 h-11" disabled={channelLoading || channelProcessing} />
+              <Input value={channelUrl} onChange={e => setChannelUrl(e.target.value)} placeholder="https://www.tiktok.com/@username" className="w-full min-w-0 sm:flex-1 sm:min-w-60 h-11" disabled={channelLoading || channelProcessing} />
               <Button onClick={handleFetchChannel} disabled={channelLoading || channelProcessing} className="h-11">
                 {channelLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Đang quét...</> : 'Quét kênh'}
               </Button>
@@ -330,10 +330,10 @@ export function TikTokPage() {
 
         {/* Audio Tab */}
         <TabsContent value="audio" className="space-y-4">
-          <Card className="p-6">
+          <Card className="min-w-0 p-4 sm:p-6">
             <label className="text-sm font-semibold block mb-2">Danh sách link TikTok để tải audio MP3</label>
             <Textarea value={audioUrlText} onChange={e => { setAudioUrlText(e.target.value); setIsAudioFormatted(false); }} placeholder="URLs TikTok..." className="min-h-[120px] font-mono text-sm mb-3" disabled={isProcessingAudio} />
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button onClick={() => { const u = parseUrls(audioUrlText); if (!u.length) { toast.error('Vui lòng nhập link'); return; } setAudioUrlText(u.join(', ')); setIsAudioFormatted(true); toast.success('Đã định dạng'); }} variant="outline" disabled={isProcessingAudio}>Định dạng danh sách link</Button>
               <Button onClick={() => processBulk('audio', audioUrlText, setAudioData, setIsProcessingAudio)} disabled={!isAudioFormatted || isProcessingAudio}>
                 {isProcessingAudio ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Đang tải...</> : 'Bắt đầu tải Audio'}
@@ -359,10 +359,10 @@ export function TikTokPage() {
 
         {/* Video Tab */}
         <TabsContent value="video" className="space-y-4">
-          <Card className="p-6">
+          <Card className="min-w-0 p-4 sm:p-6">
             <label className="text-sm font-semibold block mb-2">Danh sách link TikTok để tải video MP4</label>
             <Textarea value={videoUrlText} onChange={e => { setVideoUrlText(e.target.value); setIsVideoFormatted(false); }} placeholder="URLs TikTok..." className="min-h-[120px] font-mono text-sm mb-3" disabled={isProcessingVideo} />
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button onClick={() => { const u = parseUrls(videoUrlText); if (!u.length) { toast.error('Vui lòng nhập link'); return; } setVideoUrlText(u.join(', ')); setIsVideoFormatted(true); toast.success('Đã định dạng'); }} variant="outline" disabled={isProcessingVideo}>Định dạng danh sách link</Button>
               <Button onClick={() => processBulk('video', videoUrlText, setVideoData, setIsProcessingVideo)} disabled={!isVideoFormatted || isProcessingVideo}>
                 {isProcessingVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Đang tải...</> : 'Bắt đầu tải Video'}

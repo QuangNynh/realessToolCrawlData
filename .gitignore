@@ -13,3 +13,8 @@ data/settings.json
 .DS_Store
 release-repo/
 data/pinterest/
+data/youtube-downloads/
+data/ai-gateway/
+data/script-converter/
+data/media-jobs/
+data/media-runtime/
