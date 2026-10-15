@@ -15,11 +15,22 @@ SRT giữ timestamp của lời nói. Script bỏ timestamp, giữ lời nói v�
 
 ## Whisper
 
-FFmpeg đã đi kèm ứng dụng. Whisper cần Python 3 với pip. Ứng dụng kiểm tra các vị trí Whisper có sẵn, bao gồm Homebrew trên macOS, và ưu tiên môi trường riêng đã cài thành công. Nếu chưa có hoặc bản hiện tại hỏng, bấm **Cài / sửa Whisper**. Cần internet khi cài và khi tải model lần đầu; nhận dạng sau đó chạy trên máy, không gửi audio tới Antigravity.
+FFmpeg đã đi kèm ứng dụng. Whisper cần Python 3 64-bit có `venv`; khuyến nghị **Python 3.11** để tương thích với các thư viện của bản Whisper đang dùng. Ứng dụng kiểm tra các vị trí Whisper có sẵn, bao gồm Homebrew trên macOS, và ưu tiên môi trường riêng đã cài thành công (trừ khi đặt `WHISPER_PATH`). Nếu chưa có hoặc bản hiện tại hỏng, bấm **Cài / sửa Whisper**. Cần internet khi cài và khi tải model lần đầu; nhận dạng sau đó chạy trên máy, không gửi audio tới Antigravity.
+
+- **Windows:** cài Python 3.11 64-bit từ [python.org](https://www.python.org/downloads/windows/), kèm pip và Python Launcher. App tìm Python qua `py -3.11`, `py -3`, PATH và thư mục cài mặc định của Python.org, nên không bắt buộc phải có lệnh `python3`.
+- **macOS:** dùng Python 3.11 từ [python.org](https://www.python.org/downloads/macos/) hoặc `brew install python@3.11`. App tìm các vị trí Homebrew cho Apple Silicon/Intel và Python.org; không cần mở app từ Terminal.
+
+App tạo môi trường riêng rồi chuẩn bị pip bằng `ensurepip`; nếu một bản Homebrew không chạy được bước này, app dùng pip của Python gốc (cần pip ≥22.3) để cài pip vào môi trường riêng. Chỉ pip trong môi trường riêng được nâng cấp; Python hệ thống không bị thay đổi. Kiểm tra lại bằng `whisper --help` trước khi báo cài thành công.
 
 Môi trường riêng nằm trong `data/media-runtime/` của vùng dữ liệu ứng dụng, không sửa Python/Whisper toàn hệ thống. Development dùng thư mục `data/media-runtime/` của dự án. macOS Homebrew Python 3.11 được ưu tiên; có thể đặt `PYTHON_PATH` hoặc `WHISPER_PATH` trước khi khởi động backend. Model có sẵn trong `~/.cache/whisper` được dùng lại, nếu chưa có thư mục này thì model được giữ trong môi trường riêng. Whisper/PyTorch có thể dùng hơn 1 GB; đây là runtime dùng chung, không tăng theo số file lịch sử. Thư mục runtime không được đưa vào bộ cài Electron.
 
 Nếu Python chưa được cài hoặc không hoạt động, thông báo trên màn nhận dạng chỉ rõ lỗi. **Extract Audio** hoạt động độc lập với Whisper. Chất lượng nhận dạng phụ thuộc giọng nói, tiếng ồn, ngôn ngữ và model; file không nhận ra lời nói được giữ ở trạng thái lỗi để xử lý lại.
+
+### Windows: `UnicodeEncodeError` khi in ký tự `。`
+
+Lỗi này có thể xuất hiện ngay trong `argparse.print_help`, trước khi Whisper nhận dạng audio: Python ghi phần trợ giúp có tên ngôn ngữ Unicode ra pipe nhưng dùng bảng mã `cp1252`. Mọi tiến trình kiểm tra/cài/chạy Whisper và pip được đặt `PYTHONUTF8=1`, `PYTHONIOENCODING=utf-8`, `PYTHONUNBUFFERED=1`; log được giải mã UTF-8 theo từng stream để không vỡ ký tự khi chia chunk. Cách này áp dụng cho cả Windows và macOS, không cần đổi vùng/ngôn ngữ hay code page của Windows. Xem [thiết lập mã hóa standard streams của Python](https://docs.python.org/3.13/using/cmdline.html#envvar-PYTHONIOENCODING).
+
+App đã cài cần cập nhật sang bộ cài chứa bản sửa này. Sau khi cập nhật, vào màn nhận dạng và bấm **Kiểm tra lại**; nếu Whisper đã cài đủ thì app nhận lại ngay, không cần tải lại runtime. Chỉ bấm **Cài / sửa Whisper** nếu kiểm tra vẫn báo chưa sẵn sàng.
 
 ## Hàng đợi và lịch sử
 
