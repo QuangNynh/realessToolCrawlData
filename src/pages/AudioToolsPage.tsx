@@ -15,7 +15,7 @@ const tools = {
   script: { title: 'Audio to Script', subtitle: 'Chuyển lời nói thành văn bản để đọc, sao chép hoặc đưa vào AI Script Converter.', icon: FileText, button: 'Chuyển sang Script' },
   extract: { title: 'Extract Audio', subtitle: 'Tách âm thanh từ video sang MP3, WAV, AAC, FLAC hoặc OGG.', icon: Scissors, button: 'Tách audio' },
 };
-const defaults: MediaOptions = { engine: 'moonshine', model: 'small-streaming', language: 'en', format: 'mp3', bitrate: '320', srtTiming: 'original', srtGapMs: 10 };
+const defaults: MediaOptions = { engine: 'moonshine', model: 'small-streaming', language: 'en', format: 'mp3', bitrate: '320', srtTiming: 'previous-end-plus-10ms', srtGapMs: 10 };
 const moonshineInitial: MoonshineRuntimeStatus = { ready: false, checking: false, installing: false, message: 'Chưa kiểm tra Moonshine.' };
 const modelSize = (model: string) => model.split('-')[0].replace(/^./, letter => letter.toUpperCase());
 const selectClass = 'w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm';
