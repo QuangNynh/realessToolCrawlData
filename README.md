@@ -98,4 +98,4 @@ Chức năng từ toolFe/toolBe: nhập hoặc kéo thả TXT, phân tích nhi�
 
 ## Audio Tools
 
-Menu có **Convert Audio to SRT**, **Audio to Script** và **Extract Audio**, chuyển từ toolFe/toolBe. Chọn/kéo thả nhiều file, chọn model/ngôn ngữ hoặc định dạng/bitrate, xử lý tuần tự và lưu trực tiếp vào thư mục tải. Có tạm dừng/tiếp tục, thử lại, xem/copy kết quả, xuất TXT/ZIP và xóa lịch sử cạnh select **Đợt đã lưu**. Nhận dạng chạy bằng Whisper trên máy; tách audio dùng FFmpeg đi kèm. Xem [hướng dẫn Audio Tools](docs/audio-tools.md) để cài runtime và sử dụng.
+Menu có **Convert Audio to SRT**, **Audio to Script** và **Extract Audio**, chuyển từ toolFe/toolBe. Chọn/kéo thả nhiều file, chọn model/ngôn ngữ hoặc định dạng/bitrate, xử lý tuần tự và lưu trực tiếp vào thư mục tải. Có tạm dừng/tiếp tục, thử lại, xem/copy kết quả, xuất TXT/ZIP và xóa lịch sử cạnh select **Đợt đã lưu**. Nhận dạng cho phép chọn **Whisper hoặc Moonshine** chạy trên máy, mỗi bộ có nút cài và môi trường riêng; tách audio dùng FFmpeg đi kèm. Xem [hướng dẫn Audio Tools](docs/audio-tools.md) để cài runtime, chọn ngôn ngữ/model và xem hệ điều hành được hỗ trợ.

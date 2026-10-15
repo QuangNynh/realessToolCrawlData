@@ -140,7 +140,7 @@ export function ScriptConverterPage() {
   const percent = scripts.length ? Math.round((job?.completed || 0) / scripts.length * 100) : 0;
   const selectClass = 'h-10 w-full min-w-0 rounded-md border bg-background px-3 text-sm';
 
-  return <div className='mx-auto max-w-6xl space-y-5'>
+  return <div className='mx-auto w-full min-w-0 space-y-5'>
     <header><h1 className='flex items-center gap-2 text-2xl font-semibold'><FileText className='h-6 w-6 shrink-0 text-primary' />AI Script Converter</h1>
       <p className='mt-2 text-sm text-muted-foreground'>Chuyển đổi, dịch hoặc viết lại nhiều kịch bản bằng prompt của bạn và model Antigravity.</p></header>
     <section className='space-y-3 rounded-lg border bg-card p-4 sm:p-6'>

@@ -90,7 +90,29 @@ export class WhisperRuntime {
     });
     return this.status();
   }
-  private async findPython(signal: AbortSignal) {
+  private async setup(signal: AbortSignal) {
+    await this.check;
+    this.state = { ready: false, checking: false, installing: true, message: 'Đang tìm Python 3…' };
+    await prepareSpeechPython(this.directory, signal, stage => { this.state.message = stage; });
+    this.state.message = 'Đang tải Whisper và PyTorch. Lần đầu có thể mất vài phút và dùng hơn 1 GB dung lượng…';
+    await runMediaProcess(this.bin('python'), ['-X', 'utf8', '-m', 'pip', 'install', '--disable-pip-version-check', '--no-cache-dir', '--use-deprecated=legacy-certs', '--no-input', 'openai-whisper==20250625'], signal, undefined, 30 * 60 * 1000);
+    await runMediaProcess(this.bin('whisper'), ['--help'], signal, undefined, 90_000);
+    this.state = { ready: true, checking: false, installing: false, message: 'Whisper sẵn sàng · môi trường riêng đã cài', executable: this.bin('whisper') };
+  }
+  modelDirectory() {
+    // Reuse existing official model weights without duplicating hundreds of MB.
+    const existing = path.join(os.homedir(), '.cache', 'whisper');
+    return fs.existsSync(existing) ? existing : path.join(this.directory, 'models');
+  }
+  shutdown() { this.controller?.abort(); }
+}
+
+export function pythonEnvironmentBinary(directory: string) {
+  return path.join(directory, process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
+}
+
+class PythonEnvironment {
+  private async findPython(signal: AbortSignal, name: string) {
     const candidates: { command: string; args: string[] }[] = [];
     const add = (command: string | undefined, args: string[] = []) => { if (command) candidates.push({ command, args }); };
     add(process.env.PYTHON_PATH);
@@ -119,40 +141,34 @@ export class WhisperRuntime {
       if (path.isAbsolute(command) && !fs.existsSync(command)) continue;
       try {
         const output = await runMediaProcess(command, [...args, '-X', 'utf8', '-c',
-          'import sys, struct, venv; assert sys.version_info >= (3, 9); assert struct.calcsize("P") == 8; print("LENYT_PYTHON=" + sys.executable)'], signal, undefined, 10_000);
+          'import sys, struct, venv, platform; assert sys.version_info >= (3, 9); assert struct.calcsize("P") == 8; '
+          + (process.platform === 'darwin' && process.arch === 'arm64' ? 'assert platform.machine() == "arm64", "Python must be arm64, not Rosetta"; ' : '')
+          + 'print("LENYT_PYTHON=" + sys.executable)'], signal, undefined, 10_000);
         const executable = output.match(/^LENYT_PYTHON=(.+)$/m)?.[1].trim();
         if (executable) return executable;
       } catch { if (signal.aborted) throw new Error('Đã hủy cài đặt'); }
     }
     throw new Error(process.platform === 'win32'
-      ? 'Không tìm thấy Python 3 64-bit có venv. Hãy cài Python 3.11 64-bit từ python.org (kèm pip và Python Launcher), mở lại app rồi bấm Cài / sửa Whisper.'
-      : 'Không tìm thấy Python 3 64-bit có venv. Hãy cài Python 3.11 từ python.org hoặc Homebrew (brew install python@3.11), mở lại app rồi bấm Cài / sửa Whisper.');
+      ? `Không tìm thấy Python 3 64-bit có venv. Hãy cài Python 3.11 64-bit từ python.org (kèm pip và Python Launcher), mở lại app rồi bấm Cài / sửa ${name}.`
+      : `Không tìm thấy Python 3 ${process.arch === 'arm64' ? 'arm64 native (không dùng Rosetta)' : '64-bit'} có venv. Hãy cài Python 3.11 từ python.org hoặc Homebrew (brew install python@3.11), mở lại app rồi bấm Cài / sửa ${name}.`);
   }
-  private async setup(signal: AbortSignal) {
-    await this.check;
-    const python = await this.findPython(signal);
-    this.state = { ready: false, checking: false, installing: true, message: 'Đang tạo môi trường Python riêng…' };
-    fs.mkdirSync(path.dirname(this.directory), { recursive: true });
-    await runMediaProcess(python, ['-X', 'utf8', '-m', 'venv', '--clear', '--without-pip', this.directory], signal, undefined, 120_000);
-    this.state.message = 'Đang chuẩn bị pip trong môi trường riêng…';
+  async preparePython(directory: string, signal: AbortSignal, onStage: (stage: string) => void, name: string) {
+    const python = await this.findPython(signal, name);
+    const target = pythonEnvironmentBinary(directory);
+    onStage('Đang tạo môi trường Python riêng…');
+    fs.mkdirSync(path.dirname(directory), { recursive: true });
+    await runMediaProcess(python, ['-X', 'utf8', '-m', 'venv', '--clear', '--without-pip', directory], signal, undefined, 120_000);
+    onStage('Đang chuẩn bị pip trong môi trường riêng…');
     try {
-      await runMediaProcess(this.bin('python'), ['-X', 'utf8', '-m', 'ensurepip', '--upgrade'], signal, undefined, 120_000);
+      await runMediaProcess(target, ['-X', 'utf8', '-m', 'ensurepip', '--upgrade'], signal, undefined, 120_000);
     } catch {
       if (signal.aborted) throw new Error('Đã hủy cài đặt');
-      // Some Homebrew builds fail in ensurepip's truststore. Host pip >=22.3
-      // can bootstrap this venv instead; legacy-certs still verifies TLS.
-      await runMediaProcess(python, ['-X', 'utf8', '-m', 'pip', '--python', this.bin('python'), 'install', '--disable-pip-version-check', '--no-cache-dir', '--use-deprecated=legacy-certs', '--no-input', 'pip'], signal, undefined, 120_000);
+      // Homebrew fallback; the host pip installs into the target venv only.
+      await runMediaProcess(python, ['-X', 'utf8', '-m', 'pip', '--python', target, 'install', '--disable-pip-version-check', '--no-cache-dir', '--use-deprecated=legacy-certs', '--no-input', 'pip'], signal, undefined, 120_000);
     }
-    await runMediaProcess(this.bin('python'), ['-X', 'utf8', '-m', 'pip', 'install', '--upgrade', '--disable-pip-version-check', '--no-cache-dir', '--use-deprecated=legacy-certs', '--no-input', 'pip'], signal, undefined, 120_000);
-    this.state.message = 'Đang tải Whisper và PyTorch. Lần đầu có thể mất vài phút và dùng hơn 1 GB dung lượng…';
-    await runMediaProcess(this.bin('python'), ['-X', 'utf8', '-m', 'pip', 'install', '--disable-pip-version-check', '--no-cache-dir', '--use-deprecated=legacy-certs', '--no-input', 'openai-whisper==20250625'], signal, undefined, 30 * 60 * 1000);
-    await runMediaProcess(this.bin('whisper'), ['--help'], signal, undefined, 90_000);
-    this.state = { ready: true, checking: false, installing: false, message: 'Whisper sẵn sàng · môi trường riêng đã cài', executable: this.bin('whisper') };
+    await runMediaProcess(target, ['-X', 'utf8', '-m', 'pip', 'install', '--upgrade', '--disable-pip-version-check', '--no-cache-dir', '--use-deprecated=legacy-certs', '--no-input', 'pip'], signal, undefined, 120_000);
+    return target;
   }
-  modelDirectory() {
-    // Reuse existing official model weights without duplicating hundreds of MB.
-    const existing = path.join(os.homedir(), '.cache', 'whisper');
-    return fs.existsSync(existing) ? existing : path.join(this.directory, 'models');
-  }
-  shutdown() { this.controller?.abort(); }
 }
+
+export const prepareSpeechPython = (directory: string, signal: AbortSignal, onStage: (stage: string) => void, name = 'Whisper') => new PythonEnvironment().preparePython(directory, signal, onStage, name);

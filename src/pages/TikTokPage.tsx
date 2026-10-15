@@ -233,7 +233,7 @@ export function TikTokPage() {
   };
 
   return (
-    <div className="space-y-6 min-w-0 max-w-7xl mx-auto">
+    <div className="space-y-6 w-full min-w-0 mx-auto">
       <div className="flex items-center gap-3 border-b border-border pb-4">
         <div className="p-2 bg-gradient-to-tr from-zinc-800 to-black rounded-lg text-white shadow-md"><TikTokIcon className="h-6 w-6" /></div>
         <div>

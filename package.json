@@ -15,16 +15,17 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "npm run build:backend && npm run build:frontend && npm run build:electron",
     "start": "electron .",
-    "package:mac": "npm run build && node scripts/prepare-yt-dlp.cjs mac && electron-builder --mac --publish never",
+    "package:mac": "npm run build && node scripts/prepare-yt-dlp.cjs mac && electron-builder --mac --arm64 --publish never",
     "package:win": "npm run build && node scripts/prepare-yt-dlp.cjs win && node scripts/prepare-ffmpeg.cjs && node scripts/prepare-windows-native.cjs && electron-builder --win --x64 --publish never",
     "package": "npm run dist",
-    "dist:mac": "npm run build && node scripts/prepare-yt-dlp.cjs mac && electron-builder --mac dmg zip --publish never",
+    "dist:mac": "npm run build && node scripts/prepare-yt-dlp.cjs mac && electron-builder --mac dmg zip --arm64 --publish never",
     "dist:win": "npm run build && node scripts/prepare-yt-dlp.cjs win && node scripts/prepare-ffmpeg.cjs && node scripts/prepare-windows-native.cjs && electron-builder --win nsis --x64 --publish never",
     "dist": "node scripts/run-platform.cjs dist",
-    "release:mac": "node scripts/verify-mac-signing.cjs && npm run build && node scripts/prepare-yt-dlp.cjs mac && electron-builder --mac dmg zip --config.mac.notarize=true --publish always",
+    "release:mac": "node scripts/verify-mac-signing.cjs && npm run build && node scripts/prepare-yt-dlp.cjs mac && electron-builder --mac dmg zip --arm64 --config.mac.notarize=true --publish always",
     "release:win": "npm run build && node scripts/prepare-yt-dlp.cjs win && node scripts/prepare-ffmpeg.cjs && node scripts/prepare-windows-native.cjs && electron-builder --win nsis --x64 --publish always",
     "release": "node scripts/run-platform.cjs release",
-    "setup:whisper": "npm run build:backend && node scripts/setup-whisper.cjs"
+    "setup:whisper": "npm run build:backend && node scripts/setup-whisper.cjs",
+    "setup:moonshine": "npm run build:backend && node scripts/setup-moonshine.cjs"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

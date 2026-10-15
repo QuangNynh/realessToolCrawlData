@@ -53,7 +53,7 @@ for (const kind of ['srt', 'script']) {
     const controller = new AbortController();
     res.once('close', () => { if (!res.writableFinished) controller.abort(); });
     try {
-      const srt = await youtubeToolsService.audioToSrt(req.file.path, controller.signal);
+      const srt = await youtubeToolsService.audioToSrt(req.file.path, controller.signal, { engine: req.body.engine, model: req.body.model, language: req.body.language, srtTiming: kind === 'srt' ? req.body.srtTiming : 'original', srtGapMs: req.body.srtGapMs === undefined ? undefined : Number(req.body.srtGapMs) });
       const content = kind === 'srt' ? srt : youtubeToolsService.srtToScript(srt);
       const extension = kind === 'srt' ? 'srt' : 'txt';
       const filename = req.file.originalname.replace(/\.[^.]+$/, '') + '.' + extension;

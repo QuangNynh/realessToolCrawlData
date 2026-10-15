@@ -1,11 +1,17 @@
+import type { MoonshineModelCatalog, SpeechEngine, SpeechLanguage, SpeechModel } from './speech-models';
+import type { SrtTiming } from './subtitle-timing';
+
 export type MediaTool = 'srt' | 'script' | 'extract';
 export type MediaStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type AudioFormat = 'mp3' | 'wav' | 'aac' | 'flac' | 'ogg';
 export interface MediaOptions {
-  model: 'tiny' | 'base' | 'small';
-  language: 'auto' | 'vi' | 'en' | 'zh' | 'ja' | 'ko' | 'fr' | 'de' | 'es';
+  engine: SpeechEngine;
+  model: SpeechModel;
+  language: SpeechLanguage;
   format: AudioFormat;
   bitrate: '64' | '128' | '192' | '256' | '320';
+  srtTiming: SrtTiming;
+  srtGapMs: number;
 }
 export interface MediaItem {
   id: string;
@@ -33,12 +39,13 @@ export interface MediaRuntimeStatus {
   message: string;
   executable?: string;
 }
-export interface MediaSnapshot { jobs: MediaJob[]; runtime: MediaRuntimeStatus }
+export interface MoonshineRuntimeStatus extends MediaRuntimeStatus { models?: MoonshineModelCatalog }
+export interface MediaSnapshot { jobs: MediaJob[]; runtime: MediaRuntimeStatus; moonshineRuntime: MoonshineRuntimeStatus }
 export interface SelectedMediaFile { id: string; name: string; bytes: number }
 export type MediaRequest =
-  | { action: 'list' | 'runtime' | 'install-whisper' }
+  | { action: 'list' | 'runtime' | 'install-whisper' | 'install-moonshine'; engine?: SpeechEngine }
   | { action: 'create'; tool: MediaTool; fileIds: string[]; options: Partial<MediaOptions> }
   | { action: 'pause' | 'resume' | 'retry' | 'cancel'; id: string }
-  | { action: 'clear'; tool: MediaTool }
+  | { action: 'clear' | 'reset'; tool: MediaTool }
   | { action: 'preview' | 'reveal'; id: string; itemId: string }
   | { action: 'export'; id: string; kind: 'txt' | 'zip' };

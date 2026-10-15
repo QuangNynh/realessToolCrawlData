@@ -1241,7 +1241,7 @@ export const InstagramPage = () => {
   const filteredChannelItems = channelData?.items || []
 
   return (
-    <div className='space-y-6 mx-auto'>
+    <div className='space-y-6 w-full min-w-0 mx-auto'>
       <div className='flex flex-wrap items-center gap-3 border-b pb-4'>
         <div className='p-2 bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600 rounded-lg text-white shadow-md'>
           <Instagram className='h-6 w-6' />

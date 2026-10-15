@@ -104,7 +104,7 @@ export function DefaultLayout() {
         </header>
 
         {/* Page content */}
-        <main className={`flex-1 min-w-0 min-h-0 overflow-y-auto overscroll-contain ${isYouTube ? 'youtube-page bg-background text-foreground' : 'p-3 sm:p-4 md:p-6'}`}>
+        <main className={`flex-1 min-w-0 min-h-0 overflow-y-auto overscroll-contain ${isYouTube ? 'youtube-page bg-background text-foreground' : 'p-3 sm:p-6'}`}>
           <Outlet />
         </main>
       </div>

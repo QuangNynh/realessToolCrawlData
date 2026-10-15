@@ -88,7 +88,7 @@ export function AiPage() {
   const models = snapshot.models.filter(item => `${item.id} ${item.name}`.toLowerCase().includes(search.toLowerCase()));
   const example = `curl '${baseUrl}/chat/completions' -H 'Authorization: Bearer YOUR_API_KEY' -H 'Content-Type: application/json' -d '${JSON.stringify({ model: model || 'ag/TEN_MODEL', messages: [{ role: 'user', content: 'Xin chào' }] })}'`;
 
-  return <div className='mx-auto max-w-5xl space-y-5'>
+  return <div className='mx-auto w-full min-w-0 space-y-5'>
     <header><h1 className='flex items-center gap-2 text-2xl font-semibold'><Rocket className='h-6 w-6 text-primary' />AI / Antigravity</h1>
       <p className='mt-2 text-sm text-muted-foreground'>Kết nối tài khoản Google, tạo API key cá nhân và sử dụng các model Antigravity bằng cùng một key.</p></header>
     <section className='rounded-lg border bg-card p-4 sm:p-6 space-y-4'>

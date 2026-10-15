@@ -6,6 +6,11 @@ import { Server } from 'http';
 import { DownloadSettings, registerDownloadHandler } from './download-settings';
 import { registerUpdaterIpc } from './updater';
 
+if (process.platform === 'darwin' && process.arch !== 'arm64') {
+  dialog.showErrorBox('Cần bản Apple Silicon', 'CrawlData trên Mac cần Electron arm64 chạy native. Hãy dùng bản arm64 và tắt Open using Rosetta.');
+  app.exit(1);
+}
+
 // Tắt các cảnh báo không ảnh hưởng từ Chrome DevTools Autofill protocol
 app.commandLine.appendSwitch('disable-features', 'AutofillServerCommunication,AutofillAddress');
 
@@ -295,7 +300,7 @@ if (!gotSingleInstanceLock) {
     });
     ipcMain.handle('media:request', async (event, request) => {
       if (!isTrustedAppSender(event.sender)) throw new Error('Unauthorized sender');
-      if (!request || typeof request !== 'object' || !['list', 'runtime', 'install-whisper', 'create', 'pause', 'resume', 'retry', 'cancel', 'clear', 'preview', 'reveal', 'export'].includes(request.action)) throw new Error('Thao tác media không hợp lệ');
+      if (!request || typeof request !== 'object' || !['list', 'runtime', 'install-whisper', 'install-moonshine', 'create', 'pause', 'resume', 'retry', 'cancel', 'clear', 'reset', 'preview', 'reveal', 'export'].includes(request.action)) throw new Error('Thao tác media không hợp lệ');
       if (request.action === 'create') {
         if (!Array.isArray(request.fileIds) || !request.fileIds.length || request.fileIds.length > 1000) throw new Error('Mỗi đợt từ 1 đến 1.000 file');
         const paths = request.fileIds.map((id: string) => { const item = selectedMedia.get(id); if (!item) throw new Error('Hãy chọn lại file đầu vào'); return item.path; });

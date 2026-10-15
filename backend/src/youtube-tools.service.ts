@@ -17,6 +17,8 @@ import type { MediaFile, MediaKind } from './youtube-download-queue';
 import { getMediaJobs } from './media-instance';
 import { createMediaProcessor, srtToScript } from './media-processor';
 import { youtubeVideoDate } from './youtube-video-date';
+import type { MediaOptions } from './media-types';
+import { mediaOptions } from './media-jobs';
 
 const execFileAsync = promisify(execFile);
 const ffmpegPath = ffmpegBinaryPath();
@@ -504,12 +506,13 @@ export class YouTubeToolsService {
     }
   }
 
-  async audioToSrt(audioPath: string, signal = new AbortController().signal): Promise<string> {
+  async audioToSrt(audioPath: string, signal = new AbortController().signal, options: Partial<MediaOptions> = {}): Promise<string> {
     let result: Awaited<ReturnType<ReturnType<typeof createMediaProcessor>>> | undefined;
     try {
-      result = await createMediaProcessor(getMediaJobs().runtime)(audioPath, {
+      const media = getMediaJobs();
+      result = await createMediaProcessor(media.runtime, media.moonshine)(audioPath, {
         id: 'uploaded-audio', tool: 'srt', createdAt: new Date().toISOString(), directory: os.tmpdir(), paused: false, items: [],
-        options: { model: 'base', language: 'auto', format: 'mp3', bitrate: '320' },
+        options: mediaOptions(options),
       }, { id: 'uploaded-audio', name: 'audio', bytes: 0, status: 'running' }, signal, () => {});
       return fs.readFileSync(result.path, 'utf8');
     } finally {

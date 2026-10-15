@@ -5,14 +5,19 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import type { MediaJob, MediaOptions, MediaRequest, MediaSnapshot, MediaTool, SelectedMediaFile } from '../../backend/src/media-types';
+import type { MediaJob, MediaOptions, MediaRequest, MediaSnapshot, MediaTool, MoonshineRuntimeStatus, SelectedMediaFile } from '../../backend/src/media-types';
+import { selectableSpeechLanguages, selectableSpeechModels, moonshineModels, speechLanguages, speechModelNames, type SpeechEngine } from '../../backend/src/speech-models';
+
+import { srtTimingNames, type SrtTiming } from '../../backend/src/subtitle-timing';
 
 const tools = {
   srt: { title: 'Convert Audio to SRT', subtitle: 'Nhận dạng giọng nói và tạo phụ đề có thời gian.', icon: Subtitles, button: 'Chuyển sang SRT' },
   script: { title: 'Audio to Script', subtitle: 'Chuyển lời nói thành văn bản để đọc, sao chép hoặc đưa vào AI Script Converter.', icon: FileText, button: 'Chuyển sang Script' },
   extract: { title: 'Extract Audio', subtitle: 'Tách âm thanh từ video sang MP3, WAV, AAC, FLAC hoặc OGG.', icon: Scissors, button: 'Tách audio' },
 };
-const defaults: MediaOptions = { model: 'base', language: 'auto', format: 'mp3', bitrate: '320' };
+const defaults: MediaOptions = { engine: 'moonshine', model: 'small-streaming', language: 'en', format: 'mp3', bitrate: '320', srtTiming: 'original', srtGapMs: 10 };
+const moonshineInitial: MoonshineRuntimeStatus = { ready: false, checking: false, installing: false, message: 'Chưa kiểm tra Moonshine.' };
+const modelSize = (model: string) => model.split('-')[0].replace(/^./, letter => letter.toUpperCase());
 const selectClass = 'w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm';
 const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error);
 const sizeOf = (bytes: number) => bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -28,7 +33,7 @@ function downloadText(content: string, filename: string) {
 
 export function AudioToolsPage({ tool }: { tool: MediaTool }) {
   const config = tools[tool], Icon = config.icon;
-  const [snapshot, setSnapshot] = useState<MediaSnapshot>({ jobs: [], runtime: { ready: false, checking: true, installing: false, message: 'Đang kiểm tra Whisper…' } });
+  const [snapshot, setSnapshot] = useState<MediaSnapshot>({ jobs: [], runtime: { ready: false, checking: true, installing: false, message: 'Đang kiểm tra Whisper…' }, moonshineRuntime: moonshineInitial });
   const [files, setFiles] = useState<SelectedMediaFile[]>([]);
   const [options, setOptions] = useState(defaults);
   const [selected, setSelected] = useState<string | null | undefined>();
@@ -38,26 +43,69 @@ export function AudioToolsPage({ tool }: { tool: MediaTool }) {
   const [viewer, setViewer] = useState<{ name: string; content: string } | null>(null);
   const [confirm, setConfirm] = useState<'clear' | 'cancel' | null>(null);
   const mounted = useRef(false);
+  const currentTool = useRef(tool);
+  currentTool.current = tool;
+  const initialJob = (data: MediaSnapshot) => {
+    const candidates = data.jobs.filter(job => job.tool === tool);
+    return (tool === 'extract' ? candidates[0] : [...candidates].reverse().find(job => job.items.some(item => ['pending', 'running'].includes(item.status))) || candidates[0])?.id || null;
+  };
   const jobs = snapshot.jobs.filter(job => job.tool === tool);
   const job = jobs.find(job => job.id === selected);
+  const engine = job?.options.engine || options.engine || 'whisper';
+  const engineName = engine === 'moonshine' ? 'Moonshine' : 'Whisper';
+  const runtime = engine === 'moonshine' ? snapshot.moonshineRuntime || moonshineInitial : snapshot.runtime;
+  const catalog = snapshot.moonshineRuntime?.models;
+  const languages = selectableSpeechLanguages(options.engine, catalog);
+  const models = selectableSpeechModels(options.engine, options.language, catalog);
+  const modelChoices = options.engine === 'moonshine'
+    ? moonshineModels.filter(model => model !== 'tiny-streaming' && languages.some(language => selectableSpeechModels('moonshine', language, catalog).includes(model)))
+    : models;
+  const largerModelSupport = options.engine === 'moonshine' ? modelChoices.filter(model => model !== 'tiny-streaming').map(model =>
+    `${modelSize(model)}: ${languages.filter(language => selectableSpeechModels('moonshine', language, catalog).includes(model)).map(language => speechLanguages[language]).join(', ')}`,
+  ).join('. ') : '';
   const selectJob = (id: string | null) => { selection.current = id; setSelected(id); setPage(1); setFilter('all'); };
   const apply = (data: MediaSnapshot) => {
-    if (!mounted.current) return;
+    if (!mounted.current || currentTool.current !== tool) return;
     setSnapshot(data);
-    if (selection.current === undefined) selectJob(data.jobs.find(job => job.tool === tool)?.id || null);
+    // Installation publishes readiness and the native catalog together. Polling
+    // updates both selects as soon as setup finishes, including on a fresh build.
+    if (data.moonshineRuntime?.ready && data.moonshineRuntime.models) setOptions(previous => {
+      if (previous.engine !== 'moonshine') return previous;
+      const catalog = data.moonshineRuntime.models;
+      const languages = selectableSpeechLanguages('moonshine', catalog);
+      const language = languages.includes(previous.language) ? previous.language : languages[0];
+      const models = selectableSpeechModels('moonshine', language, catalog);
+      const model = models.includes(previous.model) ? previous.model : models[0] || 'small-streaming';
+      return language && model && (language !== previous.language || model !== previous.model) ? { ...previous, language, model } : previous;
+    });
+    if (selection.current === undefined || selection.current && !data.jobs.some(job => job.id === selection.current)) selectJob(initialJob(data));
   };
   useEffect(() => {
     mounted.current = true;
+    let current = true;
+    selection.current = undefined; setSelected(undefined); setFiles([]); setViewer(null); setConfirm(null); setError(''); setPage(1); setFilter('all');
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
-      try { apply(await request({ action: 'list' })); }
-      catch (failure) { if (mounted.current) setError(messageOf(failure)); }
-      if (mounted.current) timer = setTimeout(poll, 1000);
+      try { const data = await request({ action: 'list' }); if (current) apply(data); }
+      catch (failure) { if (current && mounted.current) setError(messageOf(failure)); }
+      if (current && mounted.current) timer = setTimeout(poll, 1000);
     };
     void poll();
-    if (tool !== 'extract') void request({ action: 'runtime' }).then(apply).catch(failure => { if (mounted.current) setError(messageOf(failure)); });
-    return () => { mounted.current = false; clearTimeout(timer); };
+    return () => { current = false; mounted.current = false; clearTimeout(timer); };
   }, [tool]);
+  useEffect(() => {
+    let current = true;
+    if (tool !== 'extract') void request({ action: 'runtime', engine }).then(data => { if (current) apply(data); }).catch(failure => { if (current && mounted.current) setError(messageOf(failure)); });
+    return () => { current = false; };
+  }, [tool, engine]);
+  const changeEngine = (engine: SpeechEngine) => {
+    setError('');
+    setOptions(previous => {
+      const languages = selectableSpeechLanguages(engine, catalog);
+      const language = languages.includes(previous.language) ? previous.language : languages[0];
+      return { ...previous, engine, model: engine === 'moonshine' ? selectableSpeechModels(engine, language, catalog)[0] || 'small-streaming' : 'base', language };
+    });
+  };
   const run = async (action: () => Promise<void>) => {
     setBusy(true); setError('');
     try { await action(); } catch (failure) { if (mounted.current) setError(messageOf(failure)); }
@@ -74,6 +122,11 @@ export function AudioToolsPage({ tool }: { tool: MediaTool }) {
     const data: MediaSnapshot = await request({ action: 'create', tool, fileIds: files.map(file => file.id), options });
     if (!mounted.current) return;
     apply(data); selectJob(data.jobs[0].id); setFiles([]); toast.success('Đã thêm vào hàng đợi. Kết quả được lưu tự động.');
+  });
+  const newBatch = () => void run(async () => {
+    if (tool === 'extract') selectJob(null);
+    else { const data = await request({ action: 'reset', tool }); apply(data); if (currentTool.current !== tool) return; selectJob(initialJob(data)); }
+    setFiles([]); setViewer(null);
   });
   const control = (action: 'pause' | 'resume' | 'retry' | 'cancel') => void run(async () => {
     if (!job) return;
@@ -105,32 +158,39 @@ export function AudioToolsPage({ tool }: { tool: MediaTool }) {
   const pages = Math.max(1, Math.ceil((job ? results.length : files.length) / 50));
   const currentPage = Math.min(page, pages);
   const clearable = jobs.some(job => job.items.every(item => !['pending', 'running'].includes(item.status)));
-  const ready = tool === 'extract' || snapshot.runtime.ready;
+  const validGap = Number.isSafeInteger(options.srtGapMs) && options.srtGapMs >= 0;
+  const ready = tool === 'extract' || runtime.ready && (!!job || models.includes(options.model)) && (tool !== 'srt' || options.srtTiming === 'original' || validGap);
   const finished = Boolean(counts && !counts.pending && !counts.running);
-  const jobLabel = (job: MediaJob) => `${new Date(job.createdAt).toLocaleString('vi-VN')} · ${job.items.length} file · ${job.items.filter(item => item.status === 'completed').length} xong`;
+  const jobLabel = (job: MediaJob) => `${new Date(job.createdAt).toLocaleString('vi-VN')} · ${job.tool === 'extract' ? '' : job.options.engine === 'moonshine' ? 'Moonshine · ' : 'Whisper · '}${job.items.length} file · ${job.items.filter(item => item.status === 'completed').length} xong`;
 
-  return <div className="mx-auto max-w-6xl min-w-0 space-y-5 p-4 sm:p-6" data-media-tool={tool}>
+  return <div className="mx-auto w-full min-w-0 space-y-5" data-media-tool={tool}>
     <div className="flex items-start gap-3">
       <div className="rounded-xl bg-primary/10 p-3 text-primary"><Icon className="h-6 w-6" /></div>
       <div className="min-w-0"><h1 className="text-xl font-bold sm:text-2xl">{config.title}</h1><p className="mt-1 text-sm text-muted-foreground">{config.subtitle}</p></div>
     </div>
     {error && <p role="alert" className="whitespace-pre-wrap break-words rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-    {tool !== 'extract' && <Card className="flex flex-col gap-3 border-border p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0"><p className="text-sm font-semibold">Nhận dạng giọng nói · Whisper</p><p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground" aria-live="polite">{snapshot.runtime.message}</p></div>
+    {tool !== 'extract' && <Card className="space-y-3 border-border p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <label className="w-full space-y-1 text-sm font-medium sm:w-64">Bộ nhận dạng
+        <select id="media-engine" className={selectClass} value={engine} disabled={busy || !!job} onChange={event => changeEngine(event.target.value as SpeechEngine)}><option value="whisper">Whisper</option><option value="moonshine">Moonshine</option></select>
+      </label>
       <div className="flex shrink-0 flex-wrap gap-2">
-        <Button variant="outline" size="sm" disabled={busy || snapshot.runtime.checking || snapshot.runtime.installing || counts?.running} onClick={() => void run(async () => apply(await request({ action: 'runtime' })))}>Kiểm tra lại</Button>
-        {!snapshot.runtime.ready && <Button size="sm" disabled={busy || snapshot.runtime.checking || snapshot.runtime.installing} onClick={() => void run(async () => apply(await request({ action: 'install-whisper' })))}>{snapshot.runtime.installing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{snapshot.runtime.installing ? 'Đang cài Whisper' : 'Cài / sửa Whisper'}</Button>}
+        <Button variant="outline" size="sm" disabled={busy || runtime.checking || runtime.installing || counts?.running} onClick={() => void run(async () => apply(await request({ action: 'runtime', engine })))}>Kiểm tra lại</Button>
+        {!runtime.ready && <Button size="sm" disabled={busy || runtime.checking || runtime.installing} onClick={() => void run(async () => apply(await request({ action: engine === 'moonshine' ? 'install-moonshine' : 'install-whisper' })))}>{runtime.installing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{runtime.installing ? `Đang cài ${engineName}` : `Cài / sửa ${engineName}`}</Button>}
       </div>
+      </div>
+      <div className="min-w-0"><p className="text-sm font-semibold">Nhận dạng giọng nói · {engineName}</p><p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground" aria-live="polite">{runtime.checking ? `Đang kiểm tra ${engineName}…` : runtime.message}</p></div>
+      {engine === 'moonshine' && <p className="text-xs text-muted-foreground">Moonshine nhận dạng tiếng Anh trên máy, có model Small và Medium. Model được tải khi xử lý lần đầu và lưu cho lần dùng sau.</p>}
     </Card>}
     <Card className="space-y-4 border-border p-4 sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      {tool === 'extract' && <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <label className="min-w-0 flex-1 space-y-1 text-sm font-medium">Đợt đã lưu
           <select aria-label="Đợt xử lý audio" className={selectClass} value={selected || ''} onChange={event => selectJob(event.target.value || null)}>
             <option value="">Đợt mới</option>{jobs.map(job => <option key={job.id} value={job.id}>{jobLabel(job)}</option>)}
           </select>
         </label>
         <Button variant="outline" disabled={busy || !clearable} onClick={() => setConfirm('clear')}><Trash2 className="mr-2 h-4 w-4" />Xóa lịch sử xử lý</Button>
-      </div>
+      </div>}
       {!job ? <>
         <div className="grid gap-4 sm:grid-cols-2">
           {tool === 'extract' ? <>
@@ -142,14 +202,31 @@ export function AudioToolsPage({ tool }: { tool: MediaTool }) {
               <span className="block text-xs font-normal text-muted-foreground">WAV và FLAC giữ chất lượng, không dùng bitrate.</span>
             </label>
           </> : <>
-            <label className="space-y-1 text-sm font-medium">Model Whisper
-              <select id="media-model" className={selectClass} value={options.model} onChange={event => setOptions(previous => ({ ...previous, model: event.target.value as MediaOptions['model'] }))}><option value="tiny">Tiny · nhanh</option><option value="base">Base · cân bằng</option><option value="small">Small · chính xác hơn, chậm hơn</option></select>
-            </label>
             <label className="space-y-1 text-sm font-medium">Ngôn ngữ trong audio
-              <select id="media-language" className={selectClass} value={options.language} onChange={event => setOptions(previous => ({ ...previous, language: event.target.value as MediaOptions['language'] }))}>{Object.entries({ auto: 'Tự nhận dạng', vi: 'Tiếng Việt', en: 'Tiếng Anh', zh: 'Tiếng Trung', ja: 'Tiếng Nhật', ko: 'Tiếng Hàn', fr: 'Tiếng Pháp', de: 'Tiếng Đức', es: 'Tiếng Tây Ban Nha' }).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+              <select id="media-language" className={selectClass} value={options.language} onChange={event => setOptions(previous => {
+                const language = event.target.value as MediaOptions['language'];
+                const models = selectableSpeechModels(previous.engine, language, catalog);
+                return { ...previous, language, model: models.includes(previous.model) ? previous.model : models[0] || 'small-streaming' };
+              })}>{languages.map(language => <option key={language} value={language}>{speechLanguages[language]}{options.engine === 'moonshine' ? ` · ${selectableSpeechModels('moonshine', language, catalog).map(modelSize).join(' / ') || 'không có model'}` : ''}</option>)}</select>
+            </label>
+            <label className="space-y-1 text-sm font-medium">Model {engineName}
+              <select id="media-model" className={selectClass} value={models.includes(options.model) ? options.model : ''} disabled={!models.length} aria-describedby={options.engine === 'moonshine' ? 'moonshine-model-help' : undefined} onChange={event => setOptions(previous => ({ ...previous, model: event.target.value as MediaOptions['model'] }))}>{!models.length && <option value="">Không có model hỗ trợ ngôn ngữ này</option>}{modelChoices.map(model => <option key={model} value={model} disabled={!models.includes(model)}>{speechModelNames[model]}{models.includes(model) ? '' : ` · không hỗ trợ ${speechLanguages[options.language]}`}</option>)}</select>
+              {options.engine === 'moonshine' && <span id="moonshine-model-help" className="block text-xs font-normal text-muted-foreground" aria-live="polite">{models.length ? `${speechLanguages[options.language]} hỗ trợ ${models.map(modelSize).join(' / ')}. ${largerModelSupport}.` : 'Moonshine không còn model tiếng Việt sau khi bỏ Tiny. Hãy chọn Whisper để nhận dạng tiếng Việt.'}</span>}
             </label>
           </>}
         </div>
+        {tool === 'srt' && <div className="space-y-2">
+          <div className={`grid grid-cols-1 items-start gap-3 ${options.srtTiming !== 'original' ? 'sm:grid-cols-[minmax(0,8fr)_minmax(0,2fr)]' : ''}`}>
+          <label className="block min-w-0 space-y-2 text-sm font-medium">Cách xử lý thời gian phụ đề
+          <select id="media-srt-timing" className={selectClass} value={options.srtTiming} onChange={event => setOptions(previous => ({ ...previous, srtTiming: event.target.value as SrtTiming }))}>{Object.entries(srtTimingNames).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+        </label>
+          {options.srtTiming !== 'original' && <label className="block min-w-0 space-y-2 text-sm font-medium">Khoảng cách (ms)
+            <input id="media-srt-gap" type="number" min="0" step="1" className={selectClass} value={Number.isNaN(options.srtGapMs) ? '' : options.srtGapMs} onChange={event => setOptions(previous => ({ ...previous, srtGapMs: event.target.value === '' ? NaN : Number(event.target.value) }))} aria-invalid={!validGap} />
+            {!validGap && <span className="block text-xs text-destructive">Nhập số nguyên không âm, tính bằng ms.</span>}
+          </label>}
+          </div>
+          <p className="text-xs text-muted-foreground">Chế độ khớp mốc giữ nguyên đầu đoạn đầu tiên và thời điểm kết thúc các đoạn. Khoảng cách mặc định 10 ms = 0,01 giây.</p>
+        </div>}
         <button type="button" disabled={busy} onClick={choose}
           onDragOver={event => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)}
           onDrop={event => { event.preventDefault(); setDragging(false); if (!busy) { const dropped = Array.from(event.dataTransfer.files); void run(async () => { if (!window.desktopMedia) throw new Error('Cần mở ứng dụng Desktop'); addFiles(await window.desktopMedia.files(dropped, tool)); }); } }}
@@ -159,7 +236,7 @@ export function AudioToolsPage({ tool }: { tool: MediaTool }) {
         <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm text-muted-foreground">Đã chọn {files.length} file</span><div className="flex flex-wrap gap-2"><Button variant="ghost" disabled={busy || !files.length} onClick={() => setFiles([])}>Bỏ danh sách</Button><Button disabled={busy || !files.length || !ready} onClick={start}><Play className="mr-2 h-4 w-4" />{config.button}</Button></div></div>
       </> : counts && <>
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-          <div><h2 className="font-semibold">{finished ? 'Đã kết thúc' : job.paused ? 'Đã tạm dừng' : counts.running ? 'Đang xử lý' : 'Đang chờ lượt'}</h2><p className="mt-1 text-sm text-muted-foreground">{counts.completed}/{job.items.length} đã lưu · {counts.failed} lỗi · {counts.cancelled} đã hủy</p></div>
+          <div><h2 className="font-semibold">{finished ? 'Đã kết thúc' : job.paused ? 'Đã tạm dừng' : counts.running ? 'Đang xử lý' : 'Đang chờ lượt'}</h2><p className="mt-1 text-sm text-muted-foreground">{counts.completed}/{job.items.length} đã lưu · {counts.failed} lỗi · {counts.cancelled} đã hủy</p>{tool !== 'extract' && <p className="mt-1 text-xs text-muted-foreground">{engineName} · {speechModelNames[job.options.model]} · {speechLanguages[job.options.language]}{tool === 'srt' ? ` · ${srtTimingNames[job.options.srtTiming || 'original']}${job.options.srtTiming !== 'original' ? ` (${job.options.srtGapMs ?? 10} ms)` : ''}` : ''}</p>}</div>
           <div className="flex flex-wrap gap-2">
             {!finished && (job.paused ? <Button disabled={busy || !ready} onClick={() => control('resume')}><Play className="mr-2 h-4 w-4" />Tiếp tục</Button> : <Button variant="outline" disabled={busy} onClick={() => control('pause')}><Pause className="mr-2 h-4 w-4" />Tạm dừng</Button>)}
             {!!(counts.failed + counts.cancelled) && <Button variant="outline" disabled={busy || counts.running || !ready} onClick={() => control('retry')}><RotateCcw className="mr-2 h-4 w-4" />Thử lại file lỗi / hủy</Button>}
@@ -171,10 +248,10 @@ export function AudioToolsPage({ tool }: { tool: MediaTool }) {
         <div className="flex flex-wrap gap-2">
           {tool !== 'extract' && <Button variant="outline" disabled={busy || !counts.completed} onClick={() => exportJob('zip')}><Download className="mr-2 h-4 w-4" />Xuất ZIP</Button>}
           {tool === 'script' && <><Button variant="outline" disabled={busy || !counts.completed} onClick={() => exportJob('txt')}><Download className="mr-2 h-4 w-4" />Xuất TXT gộp</Button><Button variant="outline" disabled={busy || !counts.completed} onClick={() => exportJob('txt', true)}><Copy className="mr-2 h-4 w-4" />Sao chép tất cả</Button></>}
-          <Button variant="ghost" onClick={() => { selectJob(null); setFiles([]); }}>Tạo đợt mới</Button>
+          <Button variant="ghost" disabled={busy || tool !== 'extract' && !finished} onClick={newBatch}>Tạo đợt mới</Button>
         </div>
       </>}
-      <p className="text-xs text-muted-foreground">Xử lý lần lượt, chuyển màn vẫn chạy. File được lưu tự động vào thư mục tải đã chọn và không ghi đè file cũ. Đợt chưa xong được giữ để tiếp tục sau khi mở lại app.</p>
+      <p className="text-xs text-muted-foreground">Xử lý lần lượt, chuyển màn vẫn chạy. File được lưu tự động vào thư mục tải đã chọn và không ghi đè file cũ. Đợt chưa xong được giữ để tiếp tục sau khi mở lại app.{tool !== 'extract' && ' Chỉ giữ kết quả đợt hiện tại; tạo đợt mới không xóa file đã xuất.'}</p>
     </Card>
     {(job || files.length > 0) && <Card className="min-w-0 overflow-hidden border-border">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4"><h2 className="font-semibold">{job ? 'Kết quả xử lý' : 'File đã chọn'}</h2>{job && <select aria-label="Lọc trạng thái audio" className={`${selectClass} !w-auto`} value={filter} onChange={event => { setFilter(event.target.value); setPage(1); }}><option value="all">Tất cả ({job.items.length})</option><option value="completed">Đã lưu file</option><option value="failed">Lỗi</option><option value="pending">Đang chờ</option><option value="running">Đang xử lý</option><option value="cancelled">Đã hủy</option></select>}</div>
