@@ -50,7 +50,3 @@ Triển khai trong dự án được viết bằng TypeScript, tham khảo các 
 - [Public installed-app client](https://github.com/decolua/9router/blob/master/open-sse/providers/shared.js)
 - [Antigravity executor](https://github.com/decolua/9router/blob/master/open-sse/executors/antigravity.js)
 - [Google OAuth cho desktop](https://developers.google.com/identity/protocols/oauth2/native-app)
-
-## Kiểm tra
-
-`npm run test:ai` build backend và kiểm tra key, OAuth, lưu trữ, phát hiện model, làm mới token, chat, tool calling, ảnh và SSE bằng upstream giả lập. Sau khi build frontend/Electron, `npm run test:ai-ui` kiểm tra màn AI trong Electron bằng dữ liệu giả lập ở nhiều kích thước và hai theme.

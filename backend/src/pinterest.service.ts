@@ -14,14 +14,9 @@ import * as ExcelJS from 'exceljs';
 import * as archiver from 'archiver';
 import Ffmpeg from 'fluent-ffmpeg';
 import { DATA_DIR } from './config';
-import { executablePath } from './binary-paths';
+import { ffmpegBinaryPath } from './binary-paths';
 
-try {
-  const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-  Ffmpeg.setFfmpegPath(executablePath(ffmpegInstaller.path));
-} catch {
-  console.warn('[Pinterest] @ffmpeg-installer/ffmpeg not found, using system ffmpeg');
-}
+Ffmpeg.setFfmpegPath(ffmpegBinaryPath());
 
 const PINTEREST_API_BASE = 'https://www.pinterest.com/resource';
 const PINTEREST_V5_API = 'https://api.pinterest.com/v5';

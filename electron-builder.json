@@ -1,6 +1,7 @@
 {
   "appId": "com.quangny.youtubescheduler",
   "productName": "CrawlData",
+  "afterPack": "scripts/after-pack.cjs",
   "publish": {
     "provider": "github",
     "owner": "QuangNynh",
@@ -15,6 +16,7 @@
     "dist-electron/**/*",
     "build/icon.png",
     "node_modules/**/*",
+    "!node_modules/@ffmpeg-installer/win32-*/**",
     "package.json"
   ],
   "asarUnpack": [
@@ -29,7 +31,10 @@
   },
   "win": {
     "icon": "build/icon.ico",
-    "extraResources": [{ "from": "build/yt-dlp/win", "to": "bin" }],
+    "extraResources": [
+      { "from": "build/yt-dlp/win", "to": "bin" },
+      { "from": "build/ffmpeg/win", "to": "bin" }
+    ],
     "target": [
       {
         "target": "nsis",

@@ -5,7 +5,6 @@ const { execFileSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
 const packages = [
-  { name: '@ffmpeg-installer/win32-x64', binary: 'ffmpeg.exe' },
   { name: '@img/sharp-win32-x64', binary: 'lib/sharp-win32-x64.node' },
 ];
 const lock = require(path.join(root, 'package-lock.json'));

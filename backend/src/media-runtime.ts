@@ -2,10 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
-import { executablePath } from './binary-paths';
+import { ffmpegBinaryPath } from './binary-paths';
 import type { MediaRuntimeStatus } from './media-types';
 
-export const mediaFfmpeg = executablePath(require('@ffmpeg-installer/ffmpeg').path) as string;
+export const mediaFfmpeg = ffmpegBinaryPath();
 export const mediaEnvironment = () => ({ ...process.env, PYTHONUNBUFFERED: '1', PATH: [path.dirname(mediaFfmpeg), '/opt/homebrew/bin', '/usr/local/bin', process.env.PATH || ''].join(path.delimiter) });
 // Argument arrays only: file names never become shell commands.
 export function runMediaProcess(executable: string, args: string[], signal: AbortSignal, onOutput?: (text: string) => void, timeout = 12 * 60 * 60 * 1000): Promise<string> {

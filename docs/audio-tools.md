@@ -31,17 +31,12 @@ File đầu vào được đọc trực tiếp từ ổ đĩa, không sao chép 
 
 Select **Đợt đã lưu** có nút **Xóa lịch sử xử lý** bên cạnh. Nút bật khi màn hiện tại có ít nhất một đợt đã kết thúc. Xóa chỉ dọn lịch sử của các đợt đó; không xóa file gốc/kết quả hoặc đợt đang chờ/tạm dừng để tiếp tục. Dữ liệu lịch sử chỉ chứa metadata và đường dẫn, tối đa 20 đợt/5.000 file toàn bộ ba màn, lưu trong `data/media-jobs/jobs.json`. Văn bản xem trước/TXT gộp giới hạn 8 MB; file kết quả riêng vẫn ở thư mục tải.
 
-## API và kiểm tra
+## API và build
 
 Desktop dùng IPC được kiểm tra nguồn gọi; đường dẫn nguồn được lấy từ hộp chọn file hoặc kéo thả native, thư mục kết quả do Electron cung cấp. Backend quản lý tác vụ tại `POST /api/v1/internal/media` chỉ nhận loopback không có Origin. API upload tương thích gồm `POST /api/v1/youtube/srt`, `/youtube/script` và `/media/extract-audio` (`file`, `format`, `bitrate`), tối đa 500 MB mỗi upload. Desktop dùng đường dẫn native và không chịu giới hạn upload 500 MB.
 
 ```bash
 npm run setup:whisper
-npm run test:media
 npm run build:frontend
 npm run build:electron
-npm run test:media-ui
-node scripts/media-live-smoke.cjs # macOS: giọng nói mẫu, Whisper Base/FFmpeg thật
 ```
-
-Backend kiểm tra lô 1.000 file bằng processor giả lập, 5 định dạng qua FFmpeg thật, truyền tham số Whisper và dọn file, pause/resume/retry/cancel, checkpoint và xóa lịch sử. Kiểm thử UI chạy Electron ẩn, ghi ảnh các kích thước 480/800/1360 px vào thư mục tạm, dùng fixture lời nói và FFmpeg thật cho tách audio. Kiểm thử live dùng giọng nói mẫu tổng hợp, không dùng audio cá nhân.

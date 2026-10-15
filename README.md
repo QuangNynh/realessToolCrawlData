@@ -73,6 +73,8 @@ Tải hàng loạt audio/video trong Electron dùng hàng đợi trên đĩa, m�
 
 Chuyển tab không dừng tải. **Tạm dừng** lưu xong file đang tải rồi dừng lô; **Tiếp tục** giữ thời gian chờ YouTube; **Thử lại mục lỗi** chỉ xếp lại các mục lỗi. Hàng đợi, lỗi và vị trí file lưu trong `data/youtube-downloads/` ở vùng dữ liệu ứng dụng, tự khôi phục sau khi mở lại. Tên file giữ số thứ tự; nếu đã có file cùng tên, thêm `(2)`, `(3)` để tránh ghi đè. Có thể **Xuất link chưa tải** để đối chiếu các mục còn lại. Quét kênh dùng metadata của danh sách thay vì gửi thêm một yêu cầu cho từng video; các trường YouTube không trả về sẽ để trống.
 
+API `POST /api/v1/youtube/urls` bật `youtubetab:approximate_date` và đọc cả `timestamp`, `upload_date`, `release_timestamp`, `release_date` để trả `created_at` dạng ISO UTC. Ngày suy ra từ thời gian tương đối trong danh sách được đánh dấu `created_at_is_approximate: true`, hiển thị **≈** trong bảng và ghi độ chính xác khi xuất Excel. Ngày này có thể lệch ngày đăng thực tế, nhất là khi YouTube chỉ ghi “vài tháng/năm trước”; đây là giới hạn của [quét danh sách nhanh bằng yt-dlp](https://github.com/yt-dlp/yt-dlp#youtubetab-youtube-playlists-channels-feeds-etc). Video không có ngày trong nguồn giữ `null`.
+
 Hai tab audio/video có nút **Xóa lịch sử tải** để dọn toàn bộ lô đã kết thúc của loại đang xem (gồm mục thành công và lỗi). Thao tác xóa dữ liệu lịch sử, thư mục tải tạm và file lưu tạm còn sót của các lô đó, đồng thời thu gọn `queue.json` và bản sao `queue.json.bak`. File media đã lưu trong thư mục tải xuống được giữ nguyên. Lô còn mục đang chờ, đang tải, chờ thử lại hoặc đang tạm dừng để tiếp tục sẽ được giữ lại; nút tắt khi không có lịch sử đã kết thúc. Lô không dọn được do lỗi ổ đĩa/quyền ghi được giữ lại để thử xóa lần sau.
 
 Video riêng tư, bị xóa, giới hạn vùng/tuổi hoặc cần quyền thành viên được giữ với thông báo **Cần xử lý**. Lỗi ổ đĩa/quyền ghi tạm dừng lô để khắc phục. Lỗi chưa phân loại được thử tối đa 5 lần rồi giữ lại để thử thủ công. Không thể bảo đảm mọi URL đều tải được hoặc tự giải quyết CAPTCHA/quyền truy cập. Chính sách chờ và giới hạn yêu cầu dựa trên [tài liệu yt-dlp](https://github.com/yt-dlp/yt-dlp#download-options) và [FAQ về lỗi 429](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#http-error-429-too-many-requests-or-402-payment-required).
@@ -82,23 +84,18 @@ Kiểm tra sau khi sửa:
 ```bash
 npx tsc --noEmit
 npm run build
-npm run test:youtube
-npm run test:youtube-downloads
-npm run test:youtube-ui
 ```
-
-Hai bài kiểm tra YouTube dùng dữ liệu giả lập. Kiểm tra giao diện chạy Electron ẩn và ghi ảnh vào thư mục tạm được in ra khi hoàn tất. Các luồng tải từ YouTube thực tế cần mạng hoạt động để kiểm chứng trực tiếp.
 
 ## AI / Antigravity và API key cá nhân
 
 Mở **AI / Antigravity** trong thanh điều hướng, bấm **Kết nối Antigravity** và hoàn tất đăng nhập Google trong trình duyệt. Bấm **Tạo API key** để cấp key riêng, chọn model và gọi thử trong app. Một key dùng cho toàn bộ model Antigravity mà tài khoản hỗ trợ; danh sách model được lấy trực tiếp từ Google. Phần này chạy độc lập với 9router.
 
-API tương thích Chat Completions tại `http://127.0.0.1:8696/v1` (development: cổng `8695`), gồm `GET /v1/models` và `POST /v1/chat/completions`, xác thực `Authorization: Bearer YOUR_API_KEY`. Có streaming, tool calling và ảnh. Xem [hướng dẫn Antigravity API](docs/antigravity-api.md) để biết cách gọi, lưu trữ và các tham số hỗ trợ. Kiểm tra bằng `npm run test:ai` và `npm run test:ai-ui` sau khi build frontend/Electron.
+API tương thích Chat Completions tại `http://127.0.0.1:8696/v1` (development: cổng `8695`), gồm `GET /v1/models` và `POST /v1/chat/completions`, xác thực `Authorization: Bearer YOUR_API_KEY`. Có streaming, tool calling và ảnh. Xem [hướng dẫn Antigravity API](docs/antigravity-api.md) để biết cách gọi, lưu trữ và các tham số hỗ trợ.
 
 ## AI Script Converter
 
-Chức năng từ toolFe/toolBe: nhập hoặc kéo thả TXT, phân tích nhiều kịch bản, prompt tùy chỉnh `[SCRIPT]`, chọn key/model Antigravity, xử lý tuần tự, dừng/tiếp tục và chạy lại mục lỗi. Tiến độ được lưu ở backend; có xem/copy kết quả, xuất TXT/Word và xóa đợt đã lưu. Xem [hướng dẫn Script Converter](docs/script-converter.md). Kiểm tra bằng `npm run test:script-converter` và `npm run test:script-converter-ui` sau khi build.
+Chức năng từ toolFe/toolBe: nhập hoặc kéo thả TXT, phân tích nhiều kịch bản, prompt tùy chỉnh `[SCRIPT]`, chọn key/model Antigravity, xử lý tuần tự, dừng/tiếp tục và chạy lại mục lỗi. Tiến độ được lưu ở backend; có xem/copy kết quả, xuất TXT/Word và xóa đợt đã lưu. Xem [hướng dẫn Script Converter](docs/script-converter.md).
 
 ## Audio Tools
 
-Menu có **Convert Audio to SRT**, **Audio to Script** và **Extract Audio**, chuyển từ toolFe/toolBe. Chọn/kéo thả nhiều file, chọn model/ngôn ngữ hoặc định dạng/bitrate, xử lý tuần tự và lưu trực tiếp vào thư mục tải. Có tạm dừng/tiếp tục, thử lại, xem/copy kết quả, xuất TXT/ZIP và xóa lịch sử cạnh select **Đợt đã lưu**. Nhận dạng chạy bằng Whisper trên máy; tách audio dùng FFmpeg đi kèm. Xem [hướng dẫn Audio Tools](docs/audio-tools.md) để cài runtime và kiểm tra.
+Menu có **Convert Audio to SRT**, **Audio to Script** và **Extract Audio**, chuyển từ toolFe/toolBe. Chọn/kéo thả nhiều file, chọn model/ngôn ngữ hoặc định dạng/bitrate, xử lý tuần tự và lưu trực tiếp vào thư mục tải. Có tạm dừng/tiếp tục, thử lại, xem/copy kết quả, xuất TXT/ZIP và xóa lịch sử cạnh select **Đợt đã lưu**. Nhận dạng chạy bằng Whisper trên máy; tách audio dùng FFmpeg đi kèm. Xem [hướng dẫn Audio Tools](docs/audio-tools.md) để cài runtime và sử dụng.

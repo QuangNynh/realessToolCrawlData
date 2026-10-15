@@ -6,16 +6,8 @@ import { toast } from 'sonner'
 import { DataTable } from '@/components/common/data-table'
 import type { ColumnDef } from '@tanstack/react-table'
 import { ExternalLink, Copy, FileSpreadsheet } from 'lucide-react'
-import { youtubeService } from '@/services/youtube.service'
+import { youtubeService, type YouTubeVideo } from '@/services/youtube.service'
 import * as XLSX from 'xlsx'
-
-interface VideoData {
-  id: string
-  url: string
-  title: string
-  view_count: number
-  created_at?: string
-}
 
 const PAGE_SIZE_OPTIONS = [50, 100] as const
 
@@ -29,24 +21,29 @@ const formatViewCount = (count: number | null | undefined) => {
   return count.toString()
 }
 
-const formatDate = (dateString?: string) => {
-  if (!dateString) return '-'
-  try {
-    const date = new Date(dateString)
-    const day = date.getDate().toString().padStart(2, '0')
-    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-    const year = date.getFullYear()
-    return `${day}/${month}/${year}`
-  } catch {
-    return dateString
-  }
+const parseCreatedAt = (createdAt?: string | null) => {
+  if (!createdAt) return null
+  const date = new Date(createdAt)
+  return Number.isFinite(date.getTime()) ? date : null
+}
+
+const formatDate = (createdAt?: string | null) => {
+  const date = parseCreatedAt(createdAt)
+  if (!date) return '-'
+  const day = date.getUTCDate().toString().padStart(2, '0')
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0')
+  return `${day}/${month}/${date.getUTCFullYear()}`
 }
 
 const VideoViewPages = () => {
   const [channelUrl, setChannelUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [videoData, setVideoData] = useState<VideoData[]>([])
+  const [videoData, setVideoData] = useState<YouTubeVideo[]>([])
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
+  const missingDateCount = useMemo(
+    () => videoData.filter(video => !parseCreatedAt(video.created_at)).length,
+    [videoData]
+  )
 
   const handleFetchVideos = async () => {
     if (!channelUrl.trim()) {
@@ -57,7 +54,8 @@ const VideoViewPages = () => {
     setIsLoading(true)
     try {
       const response = await youtubeService.getUrlsAll(channelUrl)
-      setVideoData([...response].reverse())
+      setVideoData(response)
+      setPagination(previous => ({ ...previous, pageIndex: 0 }))
       toast.success(`Đã tải ${response.length} video`)
     } catch (error) {
       toast.error('Không thể tải danh sách video')
@@ -84,19 +82,30 @@ const VideoViewPages = () => {
     }
 
     try {
-      const excelData = videoData.map((video, index) => ({
-        STT: index + 1,
-        URL: video.url,
-        View: video.view_count,
-        'Ngày tạo': formatDate(video.created_at)
-      }))
+      const excelData = videoData.map((video, index) => {
+        const createdAt = parseCreatedAt(video.created_at)
+        return {
+          STT: index + 1,
+          URL: video.url,
+          View: video.view_count,
+          // SheetJS uses local calendar fields for Excel dates. Keep the UTC
+          // calendar date from created_at so export matches the table everywhere.
+          'Ngày tạo': createdAt
+            ? new Date(createdAt.getUTCFullYear(), createdAt.getUTCMonth(), createdAt.getUTCDate())
+            : '',
+          'Độ chính xác ngày': createdAt
+            ? video.created_at_is_approximate ? 'Ước tính từ YouTube' : 'Theo metadata video'
+            : 'Chưa có thông tin'
+        }
+      })
 
-      const worksheet = XLSX.utils.json_to_sheet(excelData)
+      const worksheet = XLSX.utils.json_to_sheet(excelData, { dateNF: 'dd/mm/yyyy' })
       worksheet['!cols'] = [
         { wch: 5 },
         { wch: 60 },
         { wch: 15 },
-        { wch: 20 }
+        { wch: 20 },
+        { wch: 25 }
       ]
 
       const workbook = XLSX.utils.book_new()
@@ -112,7 +121,7 @@ const VideoViewPages = () => {
     }
   }
 
-  const columns = useMemo<ColumnDef<VideoData>[]>(() => [
+  const columns = useMemo<ColumnDef<YouTubeVideo>[]>(() => [
     {
       accessorKey: 'id',
       header: 'Video ID',
@@ -127,7 +136,7 @@ const VideoViewPages = () => {
         const title = row.original.title
         return (
           <div
-            className='max-w-md cursor-pointer hover:text-blue-600 transition-colors'
+            className='max-w-md truncate cursor-pointer hover:text-blue-600 transition-colors'
             title={`${title}\n\nClick để sao chép`}
             onClick={() => copyToClipboard(title, 'Tiêu đề')}
           >
@@ -152,8 +161,8 @@ const VideoViewPages = () => {
       accessorKey: 'created_at',
       header: 'Ngày tạo',
       cell: ({ row }) => (
-        <div className='text-sm text-gray-500'>
-          {formatDate(row.original.created_at)}
+        <div className='whitespace-nowrap text-sm text-muted-foreground' title={row.original.created_at_is_approximate ? 'Ngày ước tính từ thời gian tương đối YouTube cung cấp khi quét kênh.' : undefined}>
+          {row.original.created_at && row.original.created_at_is_approximate ? '≈ ' : ''}{formatDate(row.original.created_at)}
         </div>
       )
     },
@@ -235,6 +244,8 @@ const VideoViewPages = () => {
                 Tìm thấy {videoData.length} video
               </h3>
             </div>
+            {missingDateCount > 0 && <p className='text-sm text-muted-foreground'>Có ngày tạo cho {videoData.length - missingDateCount}/{videoData.length} video. Chưa có thông tin ngày tạo cho {missingDateCount} video còn lại.</p>}
+            {videoData.some(video => video.created_at_is_approximate) && <p className='text-sm text-muted-foreground'>Dấu ≈ là ngày ước tính từ thời gian tương đối trên YouTube khi quét nhanh danh sách. File Excel có ghi rõ độ chính xác của ngày.</p>}
             <DataTable
               columns={columns}
               data={videoData}

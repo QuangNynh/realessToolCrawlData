@@ -26,7 +26,7 @@ export function classifyDownloadError(error: unknown): { kind: DownloadErrorKind
   if ([402, 429].includes(status) || /\b(?:402|429)\b|too many requests|rate.?limit|confirm you.?re not a bot|unusual traffic|temporarily blocked|request limit|try again later/i.test(message)) {
     return { kind: 'rate_limit', message, retryAfterMs };
   }
-  if (/\b(?:ENOSPC|EACCES|EPERM|EROFS|ENOENT)\b|no space left|permission denied|read-only file system|cannot find.*(?:ffmpeg|yt-dlp)|unrecognized (?:option|argument)|no such option|unsupported.*javascript runtime/i.test(message)) {
+  if (['ENOSPC', 'EACCES', 'EPERM', 'EROFS', 'ENOENT'].includes(details?.code) || /\b(?:ENOSPC|EACCES|EPERM|EROFS|ENOENT)\b|no space left|permission denied|read-only file system|cannot find.*(?:ffmpeg|yt-dlp)|unrecognized (?:option|argument)|no such option|unsupported.*javascript runtime/i.test(message)) {
     return { kind: 'filesystem', message, retryAfterMs: 0 };
   }
   if (/private video|video (?:has been )?(?:removed|deleted)|video unavailable|not available in your country|members.only|join this channel|age.restricted|confirm your age|sign in to confirm your age|copyright|account.*terminated|live event.*(?:begin|start)|this video is not available/i.test(message)) {

@@ -51,13 +51,12 @@ latest-mac.yml
 
 ## 3. Push bản cập nhật tiếp theo
 
-Sửa code **trong `release-repo/`**, chạy test, rồi commit thay đổi trước khi tăng version:
+Sửa code **trong `release-repo/`**, build, rồi commit thay đổi trước khi tăng version:
 
 ```bash
 cd /Users/quangnynh/Desktop/project/lenytdesktop/release-repo
 npm ci
 npm run build
-npm run test:updater
 git add .
 git commit -m "Describe the changes"
 npm version patch

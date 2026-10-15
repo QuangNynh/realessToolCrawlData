@@ -8,6 +8,7 @@ import { Card } from '@/components/youtube-ui/card'
 import { Progress } from '@/components/youtube-ui/progress'
 import { Textarea } from '@/components/youtube-ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/youtube-ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/youtube-ui/dialog'
 import type { DownloadBatch, DownloadItem, MediaKind } from '../../backend/src/youtube-download-queue'
 
 interface QueueSnapshot { batches: DownloadBatch[]; cooldownUntil: number; active: string | null; error?: string | null }
@@ -25,6 +26,7 @@ export function YouTubeBatchDownload({ kind }: { kind: MediaKind }) {
   const [selectedId, setSelectedId] = useState<string>()
   const [busy, setBusy] = useState(false)
   const [connectionError, setConnectionError] = useState('')
+  const [selectedError, setSelectedError] = useState<{ url: string; message: string } | null>(null)
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
   const mounted = useRef(true)
   const nowRef = useRef(Date.now())
@@ -128,7 +130,7 @@ export function YouTubeBatchDownload({ kind }: { kind: MediaKind }) {
     { accessorKey: 'attempts', header: 'Lần thử', size: 70 },
     { accessorKey: 'title', header: 'Tiêu đề', cell: ({ row }) => <div className='max-w-[200px] truncate' title={row.original.title}>{row.original.title || '—'}</div> },
     { accessorKey: 'outputPath', header: 'File đã lưu', cell: ({ row }) => <div className='max-w-[200px] truncate' title={row.original.status === 'success' ? row.original.outputPath : undefined}>{row.original.status === 'success' ? row.original.outputPath?.split(/[\\/]/).pop() : '—'}</div> },
-    { accessorKey: 'error', header: 'Thông báo', cell: ({ row }) => <div className='max-w-[250px] truncate text-red-600' title={row.original.error}>{row.original.error || '—'}</div> },
+    { accessorKey: 'error', header: 'Thông báo', cell: ({ row }) => row.original.error ? <div className='max-w-[250px] space-y-1 text-red-600'><p className='truncate' title={row.original.error}>{row.original.error}</p><Button variant='outline' size='sm' onClick={() => setSelectedError({ url: row.original.videoUrl, message: row.original.error! })}>Xem lỗi đầy đủ</Button></div> : '—' },
   ], [queue.cooldownUntil, now, batch?.paused])
 
   const cooling = queue.cooldownUntil > now && counts.pending > 0 && !batch?.paused
@@ -165,5 +167,8 @@ export function YouTubeBatchDownload({ kind }: { kind: MediaKind }) {
       {counts.failed > 0 && <p className='text-sm text-red-600'>Có mục cần xử lý. Xem thông báo ở từng dòng, khắc phục quyền truy cập hoặc lỗi ổ đĩa rồi bấm thử lại.</p>}
       <DataTable columns={columns} data={items} getRowId={item => item.id} pageSizeOptions={PAGE_SIZE_OPTIONS as unknown as number[]} pagination={pagination} onPaginationChange={setPagination} />
     </Card>}
+    <Dialog open={!!selectedError} onOpenChange={open => { if (!open) setSelectedError(null) }}>
+      <DialogContent className='max-w-3xl'><DialogHeader><DialogTitle>Lỗi tải YouTube</DialogTitle><DialogDescription className='break-all'>{selectedError?.url}</DialogDescription></DialogHeader><pre className='max-h-[60dvh] overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-muted p-3 text-xs select-text'>{selectedError?.message}</pre></DialogContent>
+    </Dialog>
   </div>
 }

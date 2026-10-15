@@ -43,13 +43,3 @@ Chỉ nội dung kịch bản được thay vào `[SCRIPT]`; số thứ tự, UR
 Khi xuất một đợt còn lỗi/chưa xử lý, các mục đó giữ nội dung gốc. File Word `.doc` là HTML tương thích Word như dự án nguồn, hỗ trợ chữ đậm/nghiêng và link HTTP(S); nguồn và kết quả AI được escape trước khi tạo HTML.
 
 Quota, quyền tài khoản và độ dài model vẫn do Antigravity quyết định. Khi kịch bản quá dài, chia nhỏ hoặc chọn model phù hợp rồi chạy lại mục lỗi.
-
-## Kiểm tra
-
-```bash
-npm run build
-npm run test:script-converter
-npm run test:script-converter-ui
-```
-
-Kiểm thử backend có lô 1.000 kịch bản, checkpoint, retry/cooldown, abort, resume, thu hồi key và bảo vệ endpoint. Kiểm thử Electron dùng backend thật và phản hồi Antigravity giả lập, kiểm tra nhập file, chuyển màn hình, model/key, xuất file, xóa lịch sử, phân trang và giao diện sáng/tối ở 375, 768, 1280 px. Chưa xác minh tài khoản/model Google thực tế.

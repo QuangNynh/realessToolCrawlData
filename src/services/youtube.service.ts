@@ -74,12 +74,13 @@ interface VideoResponse {
   blob?: Blob
 }
 
-interface DataUrls {
+export interface YouTubeVideo {
   id: string
   url: string
   title: string
   view_count: number
-  created_at?: string
+  created_at?: string | null
+  created_at_is_approximate?: boolean
 }
 class YouTubeService {
   async getTranscript(videoId: string): Promise<TranscriptResponse> {
@@ -96,8 +97,8 @@ class YouTubeService {
     return response.data
   }
 
-  async getUrlsAll(url: string): Promise<DataUrls[]> {
-    const response = await api.post(`youtube/urls`, {
+  async getUrlsAll(url: string): Promise<YouTubeVideo[]> {
+    const response = await api.post<{ videos: YouTubeVideo[] }>(`youtube/urls`, {
       url
     }, { timeout: TIMEOUT_SCAN })
     return response.data.videos

@@ -10,15 +10,16 @@ import axios from 'axios';
 import Ffmpeg from 'fluent-ffmpeg';
 import sharp from 'sharp';
 import { exec as youtubeDlExec } from 'youtube-dl-exec';
-import { executablePath } from './binary-paths';
+import { ffmpegBinaryPath } from './binary-paths';
 import { youtubeVideoId } from './youtube-download-policy';
 import { playableMp4 } from './video-file';
 import type { MediaFile, MediaKind } from './youtube-download-queue';
 import { getMediaJobs } from './media-instance';
 import { createMediaProcessor, srtToScript } from './media-processor';
+import { youtubeVideoDate } from './youtube-video-date';
 
 const execFileAsync = promisify(execFile);
-const ffmpegPath: string = executablePath(require('@ffmpeg-installer/ffmpeg').path);
+const ffmpegPath = ffmpegBinaryPath();
 Ffmpeg.setFfmpegPath(ffmpegPath);
 // Preserve native ESM loading in the CommonJS Electron backend.
 const loadYoutube = new Function('return import("youtubei.js")') as () => Promise<any>;
@@ -205,6 +206,7 @@ export class YouTubeToolsService {
       const ytDlOpts: any = {
         dumpSingleJson: true,
         flatPlaylist: true,
+        extractorArgs: 'youtubetab:approximate_date',
         ignoreConfig: true,
         noWarnings: true,
         socketTimeout: 30,
@@ -221,11 +223,12 @@ export class YouTubeToolsService {
       const parsed = JSON.parse(result.stdout);
       const rawEntries: any[] = [];
       const visit = (entry: any) => {
+        if (!entry || typeof entry !== 'object') return;
         if (Array.isArray(entry.entries)) entry.entries.forEach(visit);
         else if (entry.id) rawEntries.push(entry);
       };
       visit(parsed);
-      // Flat channel entries already contain the fields used by the table.
+      // Ask the tab extractor for dates while preserving fast flat extraction.
       // Avoid one additional player request per video in a 1,000-item channel.
       const seen = new Set<string>();
       const validVideos = rawEntries.filter(entry => {
@@ -246,8 +249,7 @@ export class YouTubeToolsService {
         keywords: entry.tags ?? [],
         is_live: entry.live_status === 'is_live',
         category: entry.categories?.[0] ?? null,
-        created_at: entry.timestamp || entry.release_timestamp
-          ? new Date((entry.timestamp || entry.release_timestamp) * 1000).toISOString() : null,
+        ...youtubeVideoDate(entry),
       }));
 
       return {
@@ -364,6 +366,7 @@ export class YouTubeToolsService {
     const options: any = {
       format, output, noPlaylist: true, noWarnings: true, ignoreConfig: true,
       ffmpegLocation: ffmpegPath,
+      postprocessorArgs: 'ffmpeg:-loglevel error',
       jsRuntimes: `node:${process.execPath}`,
       continue: true, part: true, socketTimeout: 30,
       retries: 3, fragmentRetries: 3, extractorRetries: 1, fileAccessRetries: 2,
@@ -374,7 +377,9 @@ export class YouTubeToolsService {
       newline: true, progress: true, progressDelta: 1,
       progressTemplate: 'download:LENYT_PROGRESS=%(progress._percent_str)s',
       print: ['after_move:LENYT_TITLE=%(title)j', 'after_move:LENYT_FILE=%(filepath)j'],
-      ...(video ? { mergeOutputFormat: 'mp4' } : {}),
+      // MKV accepts AV1/VP9 + Opus without forcing them into MP4 first.
+      // playableMp4 publishes the final H.264/AAC MP4 after validation.
+      ...(video ? { mergeOutputFormat: 'mkv' } : {}),
     };
     const child = youtubeDlExec(`https://www.youtube.com/watch?v=${this.extractVideoId(url)}`, options, {
       signal,

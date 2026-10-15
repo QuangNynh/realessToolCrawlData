@@ -15,20 +15,14 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { pipeline } from 'stream/promises';
 import { DATA_DIR } from './config';
-import { executablePath } from './binary-paths';
+import { executablePath, ffmpegBinaryPath } from './binary-paths';
 import { playableMp4 } from './video-file';
 
 const execFileAsync = promisify(execFile);
 const ytDlpPath: string = executablePath(require('youtube-dl-exec').constants.YOUTUBE_DL_PATH);
-const ffmpegPath: string = executablePath(require('@ffmpeg-installer/ffmpeg').path);
+const ffmpegPath = ffmpegBinaryPath();
 
-// Try to set ffmpeg path
-try {
-  const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-  Ffmpeg.setFfmpegPath(executablePath(ffmpegInstaller.path));
-} catch {
-  console.warn('[Instagram] @ffmpeg-installer/ffmpeg not found, using system ffmpeg');
-}
+Ffmpeg.setFfmpegPath(ffmpegPath);
 
 export interface InstagramResponse {
   results_number: number;

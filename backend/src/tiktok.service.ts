@@ -11,20 +11,13 @@ import * as os from 'os';
 import Ffmpeg from 'fluent-ffmpeg';
 import youtubedl from 'youtube-dl-exec';
 import { DATA_DIR } from './config';
-import { executablePath } from './binary-paths';
+import { ffmpegBinaryPath } from './binary-paths';
 import { playableMp4 } from './video-file';
 
 const youtubeDlExec: any = (youtubedl as any)?.exec || youtubedl;
 
-let ffmpegPath = 'ffmpeg';
-// Try to set ffmpeg path
-try {
-  const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-  ffmpegPath = executablePath(ffmpegInstaller.path);
-  Ffmpeg.setFfmpegPath(ffmpegPath);
-} catch {
-  console.warn('[TikTok] @ffmpeg-installer/ffmpeg not found, using system ffmpeg');
-}
+const ffmpegPath = ffmpegBinaryPath();
+Ffmpeg.setFfmpegPath(ffmpegPath);
 
 class TikTokService {
   private readonly channelIdFile = path.join(DATA_DIR, 'tiktok-channel-ids.json');

@@ -54,9 +54,25 @@ Lệnh `npm run release` có thể publish trực tiếp từ máy hiện tại 
 1. Cài bản `v1.0.6` từ GitHub Release trên Windows. Các bản 1.0.1 cũ phải được thay thủ công một lần vì chưa có updater. Trên macOS, cần bổ sung signing secrets để phát hành DMG/ZIP đã ký.
 2. Phát hành `v1.0.7` bằng tag tương ứng và chờ GitHub Actions hoàn tất.
 3. Mở bản `1.0.6` → Settings / About → Check for Updates → Download Update → Restart and Install.
-4. Xác nhận bản mở lại là `1.0.7`. Test trên app cài đặt thật; `npm run dev` không có `app-update.yml` và cố ý không update.
+4. Xác nhận bản mở lại là `1.0.7`. Xác nhận trên app cài đặt thật; `npm run dev` không có `app-update.yml` và cố ý không update.
 
 ## Khi có lỗi
+
+### Windows: `ERROR: Postprocessing: Stream #1:0`
+
+Gói Windows cũ dùng FFmpeg `20181217-f22fcd4` từ `@ffmpeg-installer/win32-x64`. Bản này có thể thất bại với codec AV1/Opus hoặc container mới của YouTube. `Stream #1:0` là dòng ánh xạ stream, chưa phải nguyên nhân đầy đủ. yt-dlp ghi nhận [lỗi cùng dạng với FFmpeg 2018](https://github.com/yt-dlp/yt-dlp/issues/11833) và [khuyến nghị nâng FFmpeg cho lỗi container/Opus](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#why-am-i-getting-an-incorrect-codec-parameters-error-from-ffmpeg-when-downloading-or-postprocessing).
+
+Các lệnh build Windows hiện chuẩn bị FFmpeg/ffprobe **static** từ `yt-dlp/FFmpeg-Builds`, khóa release `autobuild-2026-10-13-20-20` và SHA-256. Hai executable cùng license được đặt trong `resources/bin/`, bên ngoài ASAR; mọi luồng media dùng bản này, không cần cài FFmpeg hoặc sửa PATH trên máy khách. Nếu thiếu một binary, app báo lỗi cài đặt thay vì chọn nhầm bản trong hệ thống. File FFmpeg npm từ 2018 được loại khỏi gói Windows.
+
+YouTube ghép bản gốc thành MKV trung gian, sau đó kiểm tra/chuyển sang MP4 H.264/AAC. MKV chứa được các cặp AV1/VP9 + Opus; output người dùng vẫn là MP4. Tùy chọn `ffmpeg:-loglevel error` giúp yt-dlp giữ dòng lỗi thực thay vì chỉ dòng ánh xạ stream. Trong lịch sử tải có **Xem lỗi đầy đủ** để đọc/sao chép thông báo.
+
+Hook `afterPack` kiểm tra SHA-256 của FFmpeg/ffprobe, license và yt-dlp trong gói trước khi tạo/publish installer. Không sửa hoặc xuất bản lại tag cũ; cần version mới sau khi commit sửa lỗi.
+
+```bash
+npm run dist:win
+```
+
+Bản đã cài trên máy khách cần được cập nhật bằng installer chứa bản sửa này; sửa source không thay binary trong app đã cài. Sau khi cập nhật, bấm **Thử lại mục lỗi** để giữ các file đã tải thành công.
 
 - `latest.yml` hoặc `latest-mac.yml` không thấy/404: kiểm tra chúng nằm trong **published** GitHub Release cùng installer/ZIP và bản app có `app-update.yml` đúng repo.
 - GitHub 403: kiểm tra repo công khai; workflow cần `contents: write` để publish. Không nhúng token vào app.

@@ -5,6 +5,7 @@ dist-electron
 release
 build/yt-dlp/
 build/native-cache/
+build/ffmpeg/
 data/uploads/*
 data/youtube-channels.json
 data/tiktok-channel-ids.json
