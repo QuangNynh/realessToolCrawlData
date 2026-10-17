@@ -27,6 +27,14 @@ const parseCreatedAt = (createdAt?: string | null) => {
   return Number.isFinite(date.getTime()) ? date : null
 }
 
+const compareCreatedAt = (left: YouTubeVideo, right: YouTubeVideo) => {
+  const leftTime = parseCreatedAt(left.created_at)?.getTime()
+  const rightTime = parseCreatedAt(right.created_at)?.getTime()
+  if (leftTime === undefined) return rightTime === undefined ? 0 : 1
+  if (rightTime === undefined) return -1
+  return leftTime - rightTime
+}
+
 const formatDate = (createdAt?: string | null) => {
   const date = parseCreatedAt(createdAt)
   if (!date) return '-'
@@ -54,7 +62,7 @@ const VideoViewPages = () => {
     setIsLoading(true)
     try {
       const response = await youtubeService.getUrlsAll(channelUrl)
-      setVideoData(response)
+      setVideoData([...response].sort(compareCreatedAt))
       setPagination(previous => ({ ...previous, pageIndex: 0 }))
       toast.success(`Đã tải ${response.length} video`)
     } catch (error) {
@@ -92,10 +100,7 @@ const VideoViewPages = () => {
           // calendar date from created_at so export matches the table everywhere.
           'Ngày tạo': createdAt
             ? new Date(createdAt.getUTCFullYear(), createdAt.getUTCMonth(), createdAt.getUTCDate())
-            : '',
-          'Độ chính xác ngày': createdAt
-            ? video.created_at_is_approximate ? 'Ước tính từ YouTube' : 'Theo metadata video'
-            : 'Chưa có thông tin'
+            : ''
         }
       })
 
@@ -104,8 +109,7 @@ const VideoViewPages = () => {
         { wch: 5 },
         { wch: 60 },
         { wch: 15 },
-        { wch: 20 },
-        { wch: 25 }
+        { wch: 20 }
       ]
 
       const workbook = XLSX.utils.book_new()
@@ -245,7 +249,7 @@ const VideoViewPages = () => {
               </h3>
             </div>
             {missingDateCount > 0 && <p className='text-sm text-muted-foreground'>Có ngày tạo cho {videoData.length - missingDateCount}/{videoData.length} video. Chưa có thông tin ngày tạo cho {missingDateCount} video còn lại.</p>}
-            {videoData.some(video => video.created_at_is_approximate) && <p className='text-sm text-muted-foreground'>Dấu ≈ là ngày ước tính từ thời gian tương đối trên YouTube khi quét nhanh danh sách. File Excel có ghi rõ độ chính xác của ngày.</p>}
+            {videoData.some(video => video.created_at_is_approximate) && <p className='text-sm text-muted-foreground'>Dấu ≈ là ngày ước tính từ thời gian tương đối trên YouTube khi quét nhanh danh sách.</p>}
             <DataTable
               columns={columns}
               data={videoData}
