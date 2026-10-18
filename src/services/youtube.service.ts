@@ -75,6 +75,7 @@ interface VideoResponse {
 }
 
 export interface YouTubeVideo {
+  duration?: number | null
   id: string
   url: string
   title: string
