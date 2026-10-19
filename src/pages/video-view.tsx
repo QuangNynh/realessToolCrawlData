@@ -23,13 +23,7 @@ const formatViewCount = (count: number | null | undefined) => {
 
 const formatDuration = (seconds?: number | null) => {
   if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '-'
-  const total = Math.floor(seconds)
-  const hours = Math.floor(total / 3600)
-  const minutes = Math.floor(total / 60) % 60
-  const remainder = String(total % 60).padStart(2, '0')
-  return hours > 0
-    ? `${hours}:${String(minutes).padStart(2, '0')}:${remainder}`
-    : `${minutes}:${remainder}`
+  return String(Math.floor(seconds / 60))
 }
 
 const parseCreatedAt = (createdAt?: string | null) => {
@@ -107,7 +101,7 @@ const VideoViewPages = () => {
           STT: index + 1,
           URL: video.url,
           View: video.view_count,
-          'Thời lượng': formatDuration(video.duration),
+          'Thời lượng (phút)': formatDuration(video.duration),
           // SheetJS uses local calendar fields for Excel dates. Keep the UTC
           // calendar date from created_at so export matches the table everywhere.
           'Ngày tạo': createdAt
@@ -176,7 +170,7 @@ const VideoViewPages = () => {
     },
     {
       accessorKey: 'duration',
-      header: 'Thời lượng',
+      header: 'Thời lượng (phút)',
       cell: ({ row }) => <div className='whitespace-nowrap text-sm tabular-nums'>{formatDuration(row.original.duration)}</div>
     },
     {
