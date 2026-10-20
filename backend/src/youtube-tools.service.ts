@@ -202,13 +202,46 @@ export class YouTubeToolsService {
     ); // Limit length and provide fallback
   }
 
+  private readonly dateLimit = pLimit(2);
+  private readonly dateCache = new Map<string, { date: string; expires: number }>();
+  private readonly dateRequests = new Map<string, Promise<string | null>>();
+  async getVideoDates(ids: unknown) {
+    if (!Array.isArray(ids) || !ids.length || ids.length > 4 || ids.some(id => typeof id !== 'string' || !/^[\w-]{11}$/.test(id))) throw new Error('Chọn từ 1 đến 4 video hợp lệ');
+    return Promise.all([...new Set<string>(ids)].map(async id => ({ id, created_at: await this.exactVideoDate(id), created_at_is_approximate: false })));
+  }
+  private exactVideoDate(id: string): Promise<string | null> {
+    const cached = this.dateCache.get(id);
+    if (cached && cached.expires > Date.now()) return Promise.resolve(cached.date);
+    const pending = this.dateRequests.get(id);
+    if (pending) return pending;
+    const task = this.dateLimit(async () => {
+      try {
+        const result = await youtubeDlExec(`https://www.youtube.com/watch?v=${id}`, {
+          dumpSingleJson: true, skipDownload: true, noPlaylist: true, ignoreConfig: true,
+          noWarnings: true, socketTimeout: 15, retries: 1, extractorRetries: 1,
+          sleepRequests: 0.75, ignoreNoFormatsError: true,
+        } as any, { timeout: 55_000 });
+        const entry = JSON.parse(result.stdout);
+        if (entry.id !== id) return null;
+        const date = youtubeVideoDate(entry).created_at;
+        if (date) {
+          if (this.dateCache.size >= 10000) this.dateCache.delete(this.dateCache.keys().next().value!);
+          this.dateCache.set(id, { date, expires: Date.now() + 24 * 60 * 60 * 1000 });
+        }
+        return date;
+      } catch { return null; }
+      finally { await new Promise(resolve => setTimeout(resolve, 750)); }
+    }).finally(() => this.dateRequests.delete(id));
+    this.dateRequests.set(id, task);
+    return task;
+  }
+
   async getChannelVideos(url: string) {
     try {
       // Bước 1: flatPlaylist:true → lấy danh sách video ID rất nhanh
       const ytDlOpts: any = {
         dumpSingleJson: true,
         flatPlaylist: true,
-        extractorArgs: 'youtubetab:approximate_date',
         ignoreConfig: true,
         noWarnings: true,
         socketTimeout: 30,
@@ -230,8 +263,7 @@ export class YouTubeToolsService {
         else if (entry.id) rawEntries.push(entry);
       };
       visit(parsed);
-      // Ask the tab extractor for dates while preserving fast flat extraction.
-      // Avoid one additional player request per video in a 1,000-item channel.
+      // Exact dates are resolved separately so large channels appear immediately.
       const seen = new Set<string>();
       const validVideos = rawEntries.filter(entry => {
         if (!/^[\w-]{11}$/.test(entry.id) || seen.has(entry.id)) return false;

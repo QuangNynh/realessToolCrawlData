@@ -18,12 +18,8 @@ function calendarDate(value: unknown): string | null {
 }
 
 export function youtubeVideoDate(entry: { _type?: string; timestamp?: unknown; upload_date?: unknown; release_timestamp?: unknown; release_date?: unknown }) {
-  const uploaded = timestampDate(entry.timestamp) || calendarDate(entry.upload_date);
-  const released = timestampDate(entry.release_timestamp) || calendarDate(entry.release_date);
-  return {
-    created_at: uploaded || released,
-    // Flat tab entries derive upload time from "2 days/months/years ago".
-    // A scheduled release timestamp comes from structured event data instead.
-    created_at_is_approximate: Boolean(uploaded && ['url', 'url_transparent'].includes(entry._type || '')),
-  };
+  // Flat playlist dates may be inferred from relative labels, never treat them as exact.
+  if (['url', 'url_transparent'].includes(entry._type || '')) return { created_at: null, created_at_is_approximate: false };
+  const uploaded = calendarDate(entry.upload_date) || timestampDate(entry.timestamp);
+  return { created_at: uploaded, created_at_is_approximate: false };
 }

@@ -98,6 +98,11 @@ class YouTubeService {
     return response.data
   }
 
+  async getVideoDates(ids: string[], signal?: AbortSignal) {
+    const response = await api.post<{ videos: Pick<YouTubeVideo, 'id' | 'created_at' | 'created_at_is_approximate'>[] }>('youtube/video-dates', { ids }, { timeout: TIMEOUT_SCAN, signal })
+    return response.data.videos
+  }
+
   async getUrlsAll(url: string): Promise<YouTubeVideo[]> {
     const response = await api.post<{ videos: YouTubeVideo[] }>(`youtube/urls`, {
       url

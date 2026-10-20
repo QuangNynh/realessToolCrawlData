@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Card } from '@/components/youtube-ui/card'
 import { Input } from '@/components/youtube-ui/input'
 import { Button } from '@/components/youtube-ui/button'
@@ -51,6 +51,9 @@ const formatDate = (createdAt?: string | null) => {
 const VideoViewPages = () => {
   const [channelUrl, setChannelUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [dateProgress, setDateProgress] = useState<{ done: number; total: number } | null>(null)
+  const dateController = useRef<AbortController | null>(null)
+  useEffect(() => () => dateController.current?.abort(), [])
   const [videoData, setVideoData] = useState<YouTubeVideo[]>([])
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
   const missingDateCount = useMemo(
@@ -64,17 +67,36 @@ const VideoViewPages = () => {
       return
     }
 
+    dateController.current?.abort()
+    const controller = new AbortController()
+    dateController.current = controller
+    setDateProgress(null)
     setIsLoading(true)
     try {
       const response = await youtubeService.getUrlsAll(channelUrl)
-      setVideoData([...response].sort(compareCreatedAt))
+      if (controller.signal.aborted) return
+      setVideoData(response.map(video => video.created_at_is_approximate ? { ...video, created_at: null, created_at_is_approximate: false } : video).sort(compareCreatedAt))
       setPagination(previous => ({ ...previous, pageIndex: 0 }))
       toast.success(`Đã tải ${response.length} video`)
+      setIsLoading(false)
+      const missing = response.filter(video => !parseCreatedAt(video.created_at) || video.created_at_is_approximate)
+      for (let offset = 0; offset < missing.length; offset += 4) {
+        if (controller.signal.aborted) return
+        setDateProgress({ done: offset, total: missing.length })
+        try {
+          const dates = await youtubeService.getVideoDates(missing.slice(offset, offset + 4).map(video => video.id), controller.signal)
+          if (controller.signal.aborted) return
+          const byId = new Map(dates.map(video => [video.id, video]))
+          setVideoData(previous => previous.map(video => ({ ...video, ...byId.get(video.id) })).sort(compareCreatedAt))
+        } catch { if (controller.signal.aborted) return }
+      }
+      if (!controller.signal.aborted) setDateProgress(null)
     } catch (error) {
+      if (controller.signal.aborted) return
       toast.error('Không thể tải danh sách video')
       console.error(error)
     } finally {
-      setIsLoading(false)
+      if (!controller.signal.aborted) setIsLoading(false)
     }
   }
 
@@ -240,6 +262,8 @@ const VideoViewPages = () => {
                 <Button
                   variant='outline'
                   onClick={() => {
+                    dateController.current?.abort()
+                    setDateProgress(null)
                     setVideoData([])
                     setChannelUrl('')
                   }}
@@ -260,6 +284,7 @@ const VideoViewPages = () => {
                 Tìm thấy {videoData.length} video
               </h3>
             </div>
+            {dateProgress && <p role='status' className='text-sm text-muted-foreground'>Đang xác minh ngày đăng: {dateProgress.done}/{dateProgress.total} video. Danh sách tự cập nhật và sắp xếp lại.</p>}
             {missingDateCount > 0 && <p className='text-sm text-muted-foreground'>Có ngày tạo cho {videoData.length - missingDateCount}/{videoData.length} video. Chưa có thông tin ngày tạo cho {missingDateCount} video còn lại.</p>}
             {videoData.some(video => video.created_at_is_approximate) && <p className='text-sm text-muted-foreground'>Dấu ≈ là ngày ước tính từ thời gian tương đối trên YouTube khi quét nhanh danh sách.</p>}
             <DataTable

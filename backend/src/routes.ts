@@ -119,6 +119,11 @@ apiRouter.post('/youtube/urls', async (req: Request, res: Response) => {
   }
 });
 
+apiRouter.post('/youtube/video-dates', async (req: Request, res: Response) => {
+  try { res.json({ videos: await youtubeToolsService.getVideoDates(req.body.ids) }); }
+  catch (error: any) { res.status(400).json({ success: false, message: error.message }); }
+});
+
 // =================== Instagram API ===================
 apiRouter.post('/instagram/info', async (req: Request, res: Response) => {
   try {
