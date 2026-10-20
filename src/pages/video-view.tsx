@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Card } from '@/components/youtube-ui/card'
 import { Input } from '@/components/youtube-ui/input'
 import { Button } from '@/components/youtube-ui/button'
@@ -32,9 +32,11 @@ const parseCreatedAt = (createdAt?: string | null) => {
   return Number.isFinite(date.getTime()) ? date : null
 }
 
+const videoDate = (video: YouTubeVideo) => parseCreatedAt(video.created_at) || parseCreatedAt(video.updated_at)
+
 const compareCreatedAt = (left: YouTubeVideo, right: YouTubeVideo) => {
-  const leftTime = parseCreatedAt(left.created_at)?.getTime()
-  const rightTime = parseCreatedAt(right.created_at)?.getTime()
+  const leftTime = videoDate(left)?.getTime()
+  const rightTime = videoDate(right)?.getTime()
   if (leftTime === undefined) return rightTime === undefined ? 0 : 1
   if (rightTime === undefined) return -1
   return leftTime - rightTime
@@ -51,13 +53,10 @@ const formatDate = (createdAt?: string | null) => {
 const VideoViewPages = () => {
   const [channelUrl, setChannelUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [dateProgress, setDateProgress] = useState<{ done: number; total: number } | null>(null)
-  const dateController = useRef<AbortController | null>(null)
-  useEffect(() => () => dateController.current?.abort(), [])
   const [videoData, setVideoData] = useState<YouTubeVideo[]>([])
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
   const missingDateCount = useMemo(
-    () => videoData.filter(video => !parseCreatedAt(video.created_at)).length,
+    () => videoData.filter(video => !videoDate(video)).length,
     [videoData]
   )
 
@@ -67,36 +66,17 @@ const VideoViewPages = () => {
       return
     }
 
-    dateController.current?.abort()
-    const controller = new AbortController()
-    dateController.current = controller
-    setDateProgress(null)
     setIsLoading(true)
     try {
       const response = await youtubeService.getUrlsAll(channelUrl)
-      if (controller.signal.aborted) return
       setVideoData(response.map(video => video.created_at_is_approximate ? { ...video, created_at: null, created_at_is_approximate: false } : video).sort(compareCreatedAt))
       setPagination(previous => ({ ...previous, pageIndex: 0 }))
       toast.success(`Đã tải ${response.length} video`)
-      setIsLoading(false)
-      const missing = response.filter(video => !parseCreatedAt(video.created_at) || video.created_at_is_approximate)
-      for (let offset = 0; offset < missing.length; offset += 4) {
-        if (controller.signal.aborted) return
-        setDateProgress({ done: offset, total: missing.length })
-        try {
-          const dates = await youtubeService.getVideoDates(missing.slice(offset, offset + 4).map(video => video.id), controller.signal)
-          if (controller.signal.aborted) return
-          const byId = new Map(dates.map(video => [video.id, video]))
-          setVideoData(previous => previous.map(video => ({ ...video, ...byId.get(video.id) })).sort(compareCreatedAt))
-        } catch { if (controller.signal.aborted) return }
-      }
-      if (!controller.signal.aborted) setDateProgress(null)
     } catch (error) {
-      if (controller.signal.aborted) return
       toast.error('Không thể tải danh sách video')
       console.error(error)
     } finally {
-      if (!controller.signal.aborted) setIsLoading(false)
+      setIsLoading(false)
     }
   }
 
@@ -118,14 +98,14 @@ const VideoViewPages = () => {
 
     try {
       const excelData = videoData.map((video, index) => {
-        const createdAt = parseCreatedAt(video.created_at)
+        const createdAt = videoDate(video)
         return {
           STT: index + 1,
           URL: video.url,
           View: video.view_count,
           'Thời lượng (phút)': formatDuration(video.duration),
           // SheetJS uses local calendar fields for Excel dates. Keep the UTC
-          // calendar date from created_at so export matches the table everywhere.
+          // calendar date from created_at (or updated_at) to match the table.
           'Ngày tạo': createdAt
             ? new Date(createdAt.getUTCFullYear(), createdAt.getUTCMonth(), createdAt.getUTCDate())
             : ''
@@ -199,8 +179,8 @@ const VideoViewPages = () => {
       accessorKey: 'created_at',
       header: 'Ngày tạo',
       cell: ({ row }) => (
-        <div className='whitespace-nowrap text-sm text-muted-foreground' title={row.original.created_at_is_approximate ? 'Ngày ước tính từ thời gian tương đối YouTube cung cấp khi quét kênh.' : undefined}>
-          {row.original.created_at && row.original.created_at_is_approximate ? '≈ ' : ''}{formatDate(row.original.created_at)}
+        <div className='whitespace-nowrap text-sm text-muted-foreground' title={!parseCreatedAt(row.original.created_at) && parseCreatedAt(row.original.updated_at) ? 'Dùng ngày cập nhật vì không có ngày tạo.' : undefined}>
+          {formatDate(videoDate(row.original)?.toISOString())}
         </div>
       )
     },
@@ -248,7 +228,7 @@ const VideoViewPages = () => {
 
           <div className='flex flex-wrap gap-2'>
             <Button onClick={handleFetchVideos} disabled={isLoading}>
-              {isLoading ? 'Đang tải...' : 'Lấy danh sách video'}
+              {isLoading ? 'Đang lấy danh sách và metadata...' : 'Lấy danh sách video'}
             </Button>
             {videoData.length > 0 && (
               <>
@@ -262,8 +242,6 @@ const VideoViewPages = () => {
                 <Button
                   variant='outline'
                   onClick={() => {
-                    dateController.current?.abort()
-                    setDateProgress(null)
                     setVideoData([])
                     setChannelUrl('')
                   }}
@@ -284,8 +262,7 @@ const VideoViewPages = () => {
                 Tìm thấy {videoData.length} video
               </h3>
             </div>
-            {dateProgress && <p role='status' className='text-sm text-muted-foreground'>Đang xác minh ngày đăng: {dateProgress.done}/{dateProgress.total} video. Danh sách tự cập nhật và sắp xếp lại.</p>}
-            {missingDateCount > 0 && <p className='text-sm text-muted-foreground'>Có ngày tạo cho {videoData.length - missingDateCount}/{videoData.length} video. Chưa có thông tin ngày tạo cho {missingDateCount} video còn lại.</p>}
+            {missingDateCount > 0 && <p className='text-sm text-muted-foreground'>Có ngày tạo hoặc ngày cập nhật cho {videoData.length - missingDateCount}/{videoData.length} video. Chưa có thông tin ngày cho {missingDateCount} video còn lại.</p>}
             {videoData.some(video => video.created_at_is_approximate) && <p className='text-sm text-muted-foreground'>Dấu ≈ là ngày ước tính từ thời gian tương đối trên YouTube khi quét nhanh danh sách.</p>}
             <DataTable
               columns={columns}

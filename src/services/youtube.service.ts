@@ -81,6 +81,7 @@ export interface YouTubeVideo {
   title: string
   view_count: number
   created_at?: string | null
+  updated_at?: string | null
   created_at_is_approximate?: boolean
 }
 class YouTubeService {
@@ -96,11 +97,6 @@ class YouTubeService {
       videoIds
     }, { timeout: TIMEOUT_SCAN })
     return response.data
-  }
-
-  async getVideoDates(ids: string[], signal?: AbortSignal) {
-    const response = await api.post<{ videos: Pick<YouTubeVideo, 'id' | 'created_at' | 'created_at_is_approximate'>[] }>('youtube/video-dates', { ids }, { timeout: TIMEOUT_SCAN, signal })
-    return response.data.videos
   }
 
   async getUrlsAll(url: string): Promise<YouTubeVideo[]> {

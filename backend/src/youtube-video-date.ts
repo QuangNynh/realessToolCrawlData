@@ -17,9 +17,14 @@ function calendarDate(value: unknown): string | null {
   return date.toISOString();
 }
 
-export function youtubeVideoDate(entry: { _type?: string; timestamp?: unknown; upload_date?: unknown; release_timestamp?: unknown; release_date?: unknown }) {
-  // Flat playlist dates may be inferred from relative labels, never treat them as exact.
-  if (['url', 'url_transparent'].includes(entry._type || '')) return { created_at: null, created_at_is_approximate: false };
-  const uploaded = calendarDate(entry.upload_date) || timestampDate(entry.timestamp);
-  return { created_at: uploaded, created_at_is_approximate: false };
+export function youtubeVideoDate(entry: { _type?: string; timestamp?: unknown; upload_date?: unknown; release_timestamp?: unknown; release_date?: unknown; modified_timestamp?: unknown; modified_date?: unknown; updated_at?: unknown }) {
+  let updated = calendarDate(entry.modified_date) || timestampDate(entry.modified_timestamp);
+  if (!updated && typeof entry.updated_at === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(entry.updated_at)) {
+    const date = new Date(entry.updated_at);
+    if (Number.isFinite(date.getTime())) updated = date.toISOString();
+  }
+  // Flat playlist timestamps can come from relative labels, not publication metadata.
+  const flat = ['url', 'url_transparent'].includes(entry._type || '');
+  const uploaded = flat ? null : calendarDate(entry.upload_date) || timestampDate(entry.timestamp);
+  return { created_at: uploaded, updated_at: updated, created_at_is_approximate: false };
 }

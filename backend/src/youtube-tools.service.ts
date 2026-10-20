@@ -202,43 +202,9 @@ export class YouTubeToolsService {
     ); // Limit length and provide fallback
   }
 
-  private readonly dateLimit = pLimit(2);
-  private readonly dateCache = new Map<string, { date: string; expires: number }>();
-  private readonly dateRequests = new Map<string, Promise<string | null>>();
-  async getVideoDates(ids: unknown) {
-    if (!Array.isArray(ids) || !ids.length || ids.length > 4 || ids.some(id => typeof id !== 'string' || !/^[\w-]{11}$/.test(id))) throw new Error('Chọn từ 1 đến 4 video hợp lệ');
-    return Promise.all([...new Set<string>(ids)].map(async id => ({ id, created_at: await this.exactVideoDate(id), created_at_is_approximate: false })));
-  }
-  private exactVideoDate(id: string): Promise<string | null> {
-    const cached = this.dateCache.get(id);
-    if (cached && cached.expires > Date.now()) return Promise.resolve(cached.date);
-    const pending = this.dateRequests.get(id);
-    if (pending) return pending;
-    const task = this.dateLimit(async () => {
-      try {
-        const result = await youtubeDlExec(`https://www.youtube.com/watch?v=${id}`, {
-          dumpSingleJson: true, skipDownload: true, noPlaylist: true, ignoreConfig: true,
-          noWarnings: true, socketTimeout: 15, retries: 1, extractorRetries: 1,
-          sleepRequests: 0.75, ignoreNoFormatsError: true,
-        } as any, { timeout: 55_000 });
-        const entry = JSON.parse(result.stdout);
-        if (entry.id !== id) return null;
-        const date = youtubeVideoDate(entry).created_at;
-        if (date) {
-          if (this.dateCache.size >= 10000) this.dateCache.delete(this.dateCache.keys().next().value!);
-          this.dateCache.set(id, { date, expires: Date.now() + 24 * 60 * 60 * 1000 });
-        }
-        return date;
-      } catch { return null; }
-      finally { await new Promise(resolve => setTimeout(resolve, 750)); }
-    }).finally(() => this.dateRequests.delete(id));
-    this.dateRequests.set(id, task);
-    return task;
-  }
-
-  async getChannelVideos(url: string) {
+  async getChannelVideos(url: string, concurrency = 10) {
     try {
-      // Bước 1: flatPlaylist:true → lấy danh sách video ID rất nhanh
+      // Same pipeline as toolBe: fast ID scan, then parallel youtubei.js metadata.
       const ytDlOpts: any = {
         dumpSingleJson: true,
         flatPlaylist: true,
@@ -263,9 +229,9 @@ export class YouTubeToolsService {
         else if (entry.id) rawEntries.push(entry);
       };
       visit(parsed);
-      // Exact dates are resolved separately so large channels appear immediately.
+      // Use publication metadata returned by the full extractor; never infer dates.
       const seen = new Set<string>();
-      const validVideos = rawEntries.filter(entry => {
+      const entries = rawEntries.filter(entry => {
         if (!/^[\w-]{11}$/.test(entry.id) || seen.has(entry.id)) return false;
         seen.add(entry.id);
         return true;
@@ -285,6 +251,43 @@ export class YouTubeToolsService {
         category: entry.categories?.[0] ?? null,
         ...youtubeVideoDate(entry),
       }));
+
+      await this.ready();
+      const limit = pLimit(Math.max(1, Math.min(10, Math.floor(concurrency) || 10)));
+      const validVideos = await Promise.all(entries.map(entry => limit(async () => {
+        try {
+          const info = await this.youtube.getInfo(entry.id);
+          const b = info.basic_info;
+          const microformat = info.page?.[0]?.microformat;
+          const published = microformat?.publish_date || microformat?.upload_date;
+          const publishedText = info.primary_info?.published?.text || info.primary_info?.published?.toString();
+          const candidates = [published, b.start_timestamp, publishedText];
+          let createdAt: string | null = null;
+          for (const candidate of candidates) {
+            // Never turn relative labels ("2 months ago") into a calendar date.
+            if (!(candidate instanceof Date) && (typeof candidate !== 'string' || !/\b\d{4}\b/.test(candidate))) continue;
+            const date = new Date(candidate);
+            if (Number.isFinite(date.getTime())) { createdAt = date.toISOString(); break; }
+          }
+          const dates = youtubeVideoDate({ updated_at: b.updated_at, modified_date: b.modified_date, modified_timestamp: b.modified_timestamp });
+          return {
+            ...entry,
+            title: b.title ?? entry.title,
+            description: b.short_description ?? entry.description,
+            duration: b.duration ?? entry.duration,
+            view_count: b.view_count == null ? entry.view_count : Number(b.view_count),
+            like_count: b.like_count == null ? entry.like_count : Number(b.like_count),
+            channel_id: b.channel_id ?? entry.channel_id,
+            channel: b.author ?? entry.channel,
+            thumbnails: b.thumbnail ?? entry.thumbnails,
+            keywords: b.keywords ?? entry.keywords,
+            is_live: b.is_live ?? entry.is_live,
+            category: b.category ?? entry.category,
+            created_at: createdAt,
+            updated_at: dates.updated_at ?? entry.updated_at,
+          };
+        } catch { return entry; } // Private/unavailable video must not discard the channel.
+      })));
 
       return {
         type: parsed.extractor_key ?? parsed._type ?? 'unknown',
