@@ -1,8 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.DEV
-  ? 'http://127.0.0.1:8695/api/v1/'
-  : 'http://127.0.0.1:8696/api/v1/';
+import { apiBaseUrl } from './api-connection';
 
 /** Default timeout for metadata / JSON requests (30 seconds) */
 export const TIMEOUT_METADATA = 30_000;
@@ -14,8 +12,14 @@ export const TIMEOUT_DOWNLOAD = 600_000;
 export const TIMEOUT_SCAN = 180_000;
 
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: apiBaseUrl(),
   timeout: TIMEOUT_METADATA,
+});
+
+// Resolve the selected endpoint for every request, including existing services.
+api.interceptors.request.use(config => {
+  config.baseURL = apiBaseUrl();
+  return config;
 });
 
 export default api;

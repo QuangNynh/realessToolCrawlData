@@ -125,7 +125,8 @@ export const FormatUrls = () => {
         setIsLoading(false)
         return
       }
-      const response = await youtubeService.getTranscripts(videoIds)
+      setTranscriptData([])
+      const response = await youtubeService.getTranscripts(videoIds, setTranscriptData)
       setTranscriptData(response)
       toast.success(`Fetched ${response.length} transcripts`)
     } catch (error) {

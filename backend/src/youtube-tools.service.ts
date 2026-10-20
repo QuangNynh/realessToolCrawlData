@@ -171,13 +171,18 @@ export class YouTubeToolsService {
     }
   }
 
+  private readonly transcriptLimit = pLimit(6);
+
   /* ---------------- BATCH TRANSCRIPTS ---------------- */
   async getTranscripts(videoIds: string[], preferredLang = 'en') {
-    const concurrency = 15; // số request chạy song song
-    const limit = pLimit(concurrency);
-
     const tasks = videoIds.map((videoId) =>
-      limit(() => this.getTranscript(videoId, preferredLang)),
+      this.transcriptLimit(async () => {
+        try { return await this.getTranscript(videoId, preferredLang); }
+        catch (error) {
+          return { success: false, videoId, transcript: null, transcriptLanguage: null, metadata: null,
+            error: error instanceof Error ? error.message : String(error), attempts: 0 };
+        }
+      }),
     );
 
     const results = await Promise.all(tasks);

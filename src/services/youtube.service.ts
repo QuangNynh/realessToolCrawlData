@@ -88,15 +88,22 @@ class YouTubeService {
   async getTranscript(videoId: string): Promise<TranscriptResponse> {
     const response = await api.post(`youtube/transcript`, {
       videoId
-    })
+    }, { timeout: 0 })
     return response.data
   }
 
-  async getTranscripts(videoIds: string[]): Promise<TranscriptResponse[]> {
-    const response = await api.post(`youtube/transcripts`, {
-      videoIds
-    }, { timeout: TIMEOUT_SCAN })
-    return response.data
+  async getTranscripts(videoIds: string[], onBatch?: (results: TranscriptResponse[]) => void): Promise<TranscriptResponse[]> {
+    const results: TranscriptResponse[] = []
+    // Publish each finished batch without a client-side timeout;
+    // backend errors decide when a request fails.
+    for (let offset = 0; offset < videoIds.length; offset += 10) {
+      const response = await api.post<TranscriptResponse[]>(`youtube/transcripts`, {
+        videoIds: videoIds.slice(offset, offset + 10)
+      }, { timeout: 0 })
+      results.push(...response.data)
+      onBatch?.([...results])
+    }
+    return results
   }
 
   async getUrlsAll(url: string): Promise<YouTubeVideo[]> {
