@@ -102,7 +102,7 @@ class YouTubeService {
   async getUrlsAll(url: string): Promise<YouTubeVideo[]> {
     const response = await api.post<{ videos: YouTubeVideo[] }>(`youtube/urls`, {
       url
-    }, { timeout: TIMEOUT_SCAN })
+    }, { timeout: 60 * 60 * 1000 })
     return response.data.videos
   }
 

@@ -202,7 +202,7 @@ export class YouTubeToolsService {
     ); // Limit length and provide fallback
   }
 
-  async getChannelVideos(url: string, concurrency = 10) {
+  async getChannelVideos(url: string, concurrency = 6) {
     try {
       // Same pipeline as toolBe: fast ID scan, then parallel youtubei.js metadata.
       const ytDlOpts: any = {
@@ -252,9 +252,9 @@ export class YouTubeToolsService {
         ...youtubeVideoDate(entry),
       }));
 
-      await this.ready();
-      const limit = pLimit(Math.max(1, Math.min(10, Math.floor(concurrency) || 10)));
-      const validVideos = await Promise.all(entries.map(entry => limit(async () => {
+      // Initialization failure must not discard IDs or skip the fallback extractor.
+      try { await this.ready(); } catch { /* Retry through yt-dlp below. */ }
+      const enrich = async (entry: typeof entries[number]) => {
         try {
           const info = await this.youtube.getInfo(entry.id);
           const b = info.basic_info;
@@ -283,11 +283,50 @@ export class YouTubeToolsService {
             keywords: b.keywords ?? entry.keywords,
             is_live: b.is_live ?? entry.is_live,
             category: b.category ?? entry.category,
-            created_at: createdAt,
+            created_at: createdAt ?? entry.created_at,
             updated_at: dates.updated_at ?? entry.updated_at,
           };
-        } catch { return entry; } // Private/unavailable video must not discard the channel.
-      })));
+        } catch { return entry; } // Keep IDs and any metadata recovered on earlier attempts.
+      };
+      const validVideos = [...entries];
+      const missing = () => validVideos.map((video, index) => ({ video, index })).filter(({ video }) => !video.created_at && !video.updated_at);
+      const width = Math.max(1, Math.min(6, Math.floor(concurrency) || 6));
+      // Bounded batches prevent hundreds of requests from accumulating at once.
+      // Successful rows are never retried or replaced by a partial/failed response.
+      for (const [round, workers] of [width, Math.min(width, 3), 1].entries()) {
+        const pending = round === 0 ? validVideos.map((video, index) => ({ video, index })) : missing();
+        if (!pending.length) break;
+        if (round) await this.sleep(round === 1 ? 1500 : 4000);
+        const limit = pLimit(workers);
+        for (let offset = 0; offset < pending.length; offset += 30) {
+          await Promise.all(pending.slice(offset, offset + 30).map(({ index }) => limit(async () => {
+            validVideos[index] = await enrich(validVideos[index]);
+          })));
+          if (offset + 30 < pending.length) await this.sleep(300);
+        }
+      }
+      // Only dates still missing after three lightweight attempts use yt-dlp.
+      // Never use approximate flat-playlist dates or the current scan time.
+      const fallback = missing();
+      const fallbackLimit = pLimit(2);
+      for (let offset = 0; offset < fallback.length; offset += 10) {
+        await Promise.all(fallback.slice(offset, offset + 10).map(({ index }) => fallbackLimit(async () => {
+          const video = validVideos[index];
+          try {
+            const result = await youtubeDlExec(video.url, {
+              dumpSingleJson: true, skipDownload: true, noPlaylist: true, ignoreConfig: true,
+              noWarnings: true, ignoreNoFormatsError: true, socketTimeout: 15,
+              retries: 1, extractorRetries: 1, sleepRequests: 0.75,
+            } as any, { timeout: 45_000 });
+            const metadata = JSON.parse(result.stdout);
+            if (metadata.id !== video.id) return;
+            const dates = youtubeVideoDate(metadata);
+            validVideos[index] = { ...video, created_at: video.created_at ?? dates.created_at, updated_at: video.updated_at ?? dates.updated_at };
+          } catch { /* Unavailable/private videos remain visible with missing dates. */ }
+          finally { await this.sleep(500); }
+        })));
+      }
+      console.info('[YouTube metadata]', JSON.stringify({ total: validVideos.length, fallback: fallback.length, missingDates: missing().length }));
 
       return {
         type: parsed.extractor_key ?? parsed._type ?? 'unknown',
