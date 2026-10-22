@@ -6,6 +6,12 @@ contextBridge.exposeInMainWorld('desktopMedia', {
   request: (request: unknown) => ipcRenderer.invoke('media:request', request),
 });
 
+contextBridge.exposeInMainWorld('desktopOcr', {
+  selectFolder: () => ipcRenderer.invoke('ocr:select-folder'),
+  dropFolder: (files: File[]) => ipcRenderer.invoke('ocr:drop-folder', files.map(file => webUtils.getPathForFile(file))),
+  request: (request: unknown) => ipcRenderer.invoke('ocr:request', request),
+});
+
 contextBridge.exposeInMainWorld('desktopAi', {
   request: (request: unknown) => ipcRenderer.invoke('ai:request', request),
 });

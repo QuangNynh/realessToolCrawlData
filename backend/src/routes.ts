@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import { UPLOADS_DIR } from './config';
 import { youtubeToolsService } from './youtube-tools.service';
+import { YouTubeChannelJobs } from './youtube-channel-jobs';
 import { instagramService } from './instagram.service';
 import { tiktokService } from './tiktok.service';
 import { pinterestService } from './pinterest.service';
@@ -13,6 +14,7 @@ import { createMediaProcessor, ProcessedMedia } from './media-processor';
 import { mediaOptions } from './media-jobs';
 
 export const apiRouter = Router();
+const channelJobs = new YouTubeChannelJobs(url => youtubeToolsService.getChannelVideos(url));
 
 // =================== YouTube Tools (Transcript, Audio, Video, URLs) ===================
 apiRouter.post('/youtube/transcript', async (req: Request, res: Response) => {
@@ -110,13 +112,26 @@ apiRouter.post('/youtube/video', async (req: Request, res: Response) => {
 
 apiRouter.post('/youtube/urls', async (req: Request, res: Response) => {
   try {
-    const { url } = req.body;
-    if (!url) return res.status(400).json({ success: false, message: 'Missing url' });
-    const result = await youtubeToolsService.getChannelVideos(url);
-    res.json(result);
+    const job = channelJobs.create(req.body.url);
+    // Fast scans keep the original response. Long scans return a job well
+    // before proxy timeouts; work continues independently of this connection.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try { await Promise.race([job.done, new Promise(resolve => { timer = setTimeout(resolve, 10_000); })]); }
+    finally { if (timer) clearTimeout(timer); }
+    const state = channelJobs.status(job.id)!;
+    if (state.status === 'completed') return res.json(state.result);
+    if (state.status === 'failed') return res.status(400).json({ success: false, message: state.error });
+    res.status(202).json({ jobId: job.id, status: 'running', statusUrl: `/api/v1/youtube/urls/jobs/${job.id}` });
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message });
   }
+});
+
+apiRouter.get('/youtube/urls/jobs/:id', (req: Request, res: Response) => {
+  const state = channelJobs.status(String(req.params.id));
+  res.setHeader('Cache-Control', 'no-store');
+  if (!state) return res.status(404).json({ success: false, message: 'Tác vụ không còn tồn tại hoặc backend đã khởi động lại. Hãy lấy lại danh sách.' });
+  res.json(state);
 });
 
 // =================== Instagram API ===================

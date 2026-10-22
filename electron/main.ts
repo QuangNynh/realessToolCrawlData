@@ -317,6 +317,67 @@ if (!gotSingleInstanceLock) {
       return mediaCall(request);
     });
 
+    const ocrFolders = new Map<string, string>();
+    const ocrCall = async (input: unknown) => {
+      if (!isDev) return require('../dist-backend/image-ocr-instance').dispatchImageOcr(input);
+      const response = await fetch('http://127.0.0.1:8695/api/v1/internal/image-ocr', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), signal: AbortSignal.timeout(35_000),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Không thể đọc ảnh');
+      return data;
+    };
+    const registerOcrFolder = (folder: string) => {
+      if (typeof folder !== 'string' || !path.isAbsolute(folder) || !fs.statSync(folder).isDirectory()) throw new Error('Hãy kéo một folder ảnh vào đây');
+      const files = fs.readdirSync(folder, { withFileTypes: true }).filter(item => item.isFile() && /\.(png|jpe?g|webp|tiff?|gif|avif)$/i.test(item.name)).map(item => item.name);
+      if (!files.length || files.length > 5000) throw new Error('Chọn folder có từ 1 đến 5.000 ảnh');
+      const imageOrder = new Intl.Collator('en', { numeric: true, sensitivity: 'variant' });
+      files.sort((a, b) => imageOrder.compare(a, b) || (a < b ? -1 : a > b ? 1 : 0));
+      const id = randomUUID(); if (ocrFolders.size >= 5) ocrFolders.delete(ocrFolders.keys().next().value!);
+      ocrFolders.set(id, folder); return { id, name: path.basename(folder), files };
+    };
+    ipcMain.handle('ocr:select-folder', async event => {
+      if (!isTrustedAppSender(event.sender)) throw new Error('Unauthorized sender');
+      const options: Electron.OpenDialogOptions = { title: 'Chọn folder ảnh để lấy text', properties: ['openDirectory'] };
+      const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+      if (result.canceled || !result.filePaths[0]) return null;
+      return registerOcrFolder(result.filePaths[0]);
+    });
+    ipcMain.handle('ocr:drop-folder', (event, paths) => {
+      if (!isTrustedAppSender(event.sender)) throw new Error('Unauthorized sender');
+      if (!Array.isArray(paths) || paths.length !== 1) throw new Error('Hãy kéo một folder ảnh vào đây');
+      return registerOcrFolder(paths[0]);
+    });
+    ipcMain.handle('ocr:request', async (event, input) => {
+      if (!isTrustedAppSender(event.sender)) throw new Error('Unauthorized sender');
+      if (!input || !['get', 'create', 'pause', 'resume', 'retry', 'reveal', 'text', 'reset', 'download'].includes(input.action)) throw new Error('Thao tác đọc ảnh không hợp lệ');
+      if (input.action === 'create') {
+        const folder = ocrFolders.get(input.folderId);
+        if (!folder) throw new Error('Hãy chọn lại folder ảnh');
+        const directory = downloadSettings.getDirectory() || await chooseDownloadDirectory();
+        if (!directory) throw new Error('Hãy chọn thư mục kết quả');
+        return ocrCall({ action: 'create', folder, directory, model: input.model, keyId: input.keyId });
+      }
+      if (input.action === 'download') {
+        const state = await ocrCall({ action: 'get' });
+        if (!state.job || state.working || state.job.status === 'running' || !state.job.items.some((item: { status: string }) => item.status === 'completed')) throw new Error('Hãy dừng đọc ảnh và chờ có kết quả trước khi tải TXT');
+        const options: Electron.SaveDialogOptions = {
+          title: 'Tải file TXT kết quả',
+          defaultPath: path.join(downloadSettings.getDirectory() || app.getPath('downloads'), `image-text-${state.job.id.slice(0, 8)}${state.job.status === 'completed' ? '' : '-partial'}.txt`),
+          filters: [{ name: 'Văn bản TXT', extensions: ['txt'] }],
+        };
+        const selected = mainWindow ? await dialog.showSaveDialog(mainWindow, options) : await dialog.showSaveDialog(options);
+        if (selected.canceled || !selected.filePath) return { cancelled: true };
+        return ocrCall({ action: 'export', filename: selected.filePath, id: state.job.id });
+      }
+      if (input.action === 'reveal') {
+        const result = await ocrCall({ action: 'output' }); shell.showItemInFolder(result.output); return { success: true };
+      }
+      const result = await ocrCall({ action: input.action, model: input.model, keyId: input.keyId });
+      if (input.action === 'reset') ocrFolders.clear();
+      return result;
+    });
+
     ipcMain.handle('scripts:copy', (event, text) => {
       if (!isTrustedAppSender(event.sender)) throw new Error('Unauthorized sender');
       if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > 48 * 1024 * 1024) throw new Error('Nội dung sao chép vượt quá giới hạn');
@@ -452,6 +513,7 @@ if (!gotSingleInstanceLock) {
       require('../dist-backend/script-converter-instance').shutdownScriptConverter();
       require('../dist-backend/ai-instance').shutdownAiGateway();
       require('../dist-backend/media-instance').shutdownMediaJobs();
+      require('../dist-backend/image-ocr-instance').shutdownImageOcr();
       console.log('[Electron] Shutting down backend server...');
       backendServer.close();
     }

@@ -1,3 +1,4 @@
+import axios from 'axios';
 import api, { TIMEOUT_DOWNLOAD, TIMEOUT_SCAN } from '@/config/axios';
 
 export { api };
@@ -107,10 +108,40 @@ class YouTubeService {
   }
 
   async getUrlsAll(url: string): Promise<YouTubeVideo[]> {
-    const response = await api.post<{ videos: YouTubeVideo[] }>(`youtube/urls`, {
+    const request = async <T>(send: () => Promise<T>): Promise<T> => {
+      for (let attempt = 0; ; attempt++) {
+        try { return await send() }
+        catch (failure) {
+          const status = axios.isAxiosError(failure) ? failure.response?.status : undefined
+          const temporary = axios.isAxiosError(failure) && (!failure.response || [408, 429, 500, 502, 503, 504, 524].includes(status!))
+          if (!temporary || attempt >= 4) {
+            const message = axios.isAxiosError(failure) ? failure.response?.data?.message || failure.response?.data?.detail : undefined
+            throw new Error(message || (failure instanceof Error ? failure.message : 'Không thể kết nối backend.'))
+          }
+          const retryAfter = Number(failure.response?.headers?.['retry-after'])
+          const wait = retryAfter > 0 ? Math.min(retryAfter * 1000, 120_000) : status === 524 ? 120_000 : Math.min(2000 * 2 ** attempt, 10_000)
+          await new Promise(resolve => setTimeout(resolve, wait))
+        }
+      }
+    }
+    const response = await request(() => api.post<{ videos?: YouTubeVideo[]; jobId?: string }>(`youtube/urls`, {
       url
-    }, { timeout: 60 * 60 * 1000 })
-    return response.data.videos
+    }, { timeout: 0 }))
+    if (response.data.videos) return response.data.videos
+    const jobId = response.data.jobId
+    if (!jobId) throw new Error('Backend không trả danh sách hoặc mã tác vụ.')
+    for (;;) {
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      const poll = await request(() => api.get<{ status: string; result?: { videos: YouTubeVideo[] }; error?: string }>(
+        `youtube/urls/jobs/${encodeURIComponent(jobId)}`, { timeout: 0 }
+      ))
+      if (poll.data.status === 'failed') throw new Error(poll.data.error || 'Không thể lấy danh sách video.')
+      if (poll.data.status === 'completed') {
+        if (!poll.data.result?.videos) throw new Error('Tác vụ không có danh sách video.')
+        return poll.data.result.videos
+      }
+      if (poll.data.status !== 'running') throw new Error('Trạng thái tác vụ không hợp lệ.')
+    }
   }
 
   async getAudio(url: string): Promise<AudioResponse> {

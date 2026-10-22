@@ -105,3 +105,11 @@ Video metadata bổ sung `updated_at` từ `modified_date`, `modified_timestamp`
 ## Chọn địa chỉ API
 
 Settings → Kết nối API: nhập URL HTTP/HTTPS đầy đủ (có thể dán URL `/health`; app tự chuyển về `/api/v1/`), bật Dùng domain public hoặc tắt để dùng localhost. Bấm Lưu kết nối sau khi sửa địa chỉ. Cấu hình được lưu trên máy và áp dụng cho các request HTTP mới của YouTube, Instagram, TikTok, Pinterest qua client API chung; request đang chạy giữ địa chỉ cũ. Port localhost mặc định development 8695, bản cài 8696 . Nếu public dùng port riêng, ghi trực tiếp trong URL. Các thao tác native qua Electron (hàng đợi tải, chọn file, AI gateway local, Whisper/Moonshine, mở thư mục) vẫn chạy local.
+
+## Quét kênh qua Cloudflare
+
+`POST /api/v1/youtube/urls` trả kết quả như cũ nếu xong trong 10 giây. Nếu lâu hơn, trả HTTP 202 gồm `jobId`, `status`, `statusUrl`. Gọi `GET /api/v1/youtube/urls/jobs/:jobId` để đọc trạng thái; khi `completed`, danh sách nằm trong `result.videos`, khi `failed` có `error`. FE tự polling mỗi 1,5 giây, mỗi HTTP request ngắn để tránh lỗi proxy 524. Tác vụ chạy trong RAM backend, tối đa 2 kênh cùng lúc, giữ tối đa 10 kết quả/30 phút; restart backend thì cần quét lại. Backend domain public cũng phải cập nhật bản sửa, chỉ cập nhật app không đổi được thời gian phản hồi của server cũ.
+
+## Đọc chữ từ folder ảnh
+
+Màn **Ảnh sang Text** dùng model Antigravity hỗ trợ ảnh để đọc lần lượt theo tên file (1, 2, …, 10), mỗi ảnh một dòng trong TXT. Có tạm dừng/tiếp tục/thử lại ảnh lỗi và lưu tiến độ. Xem [hướng dẫn sử dụng](docs/image-to-text.md).

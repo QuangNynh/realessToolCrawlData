@@ -7,6 +7,7 @@ import { YouTubeToolsPage } from './pages/YouTubeToolsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AiPage } from './pages/AiPage';
 import { ScriptConverterPage } from './pages/ScriptConverterPage';
+import { ImageOcrPage } from './pages/ImageOcrPage';
 import { AudioToolsPage } from './pages/AudioToolsPage';
 
 export function App() {
@@ -19,6 +20,7 @@ export function App() {
           <Route path="/instagram" element={<InstagramPage />} />
           <Route path="/tiktok" element={<TikTokPage />} />
           <Route path="/pinterest" element={<PinterestPage />} />
+          <Route path="/image-to-text" element={<ImageOcrPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/ai" element={<AiPage />} />
           <Route path="/script-converter" element={<ScriptConverterPage />} />

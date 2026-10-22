@@ -1,6 +1,12 @@
 /// <reference types="vite/client" />
 
 interface Window {
+  desktopOcr?: {
+    dropFolder: (files: File[]) => Promise<{ id: string; name: string; files: string[] }>
+    selectFolder: () => Promise<{ id: string; name: string; files: string[] } | null>
+    request: (request: import('../backend/src/image-ocr-types').OcrRequest) => Promise<any>
+  }
+
   desktopMedia?: {
     select: (tool: import('../backend/src/media-types').MediaTool) => Promise<import('../backend/src/media-types').SelectedMediaFile[]>
     files: (files: File[], tool: import('../backend/src/media-types').MediaTool) => Promise<import('../backend/src/media-types').SelectedMediaFile[]>

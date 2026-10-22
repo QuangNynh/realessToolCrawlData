@@ -3,6 +3,7 @@ import cors from 'cors';
 import axios from 'axios';
 import { loadSettings } from './config';
 import { apiRouter } from './routes';
+import { dispatchImageOcr, shutdownImageOcr } from './image-ocr-instance';
 import { instagramService } from './instagram.service';
 import { youtubeDownloads } from './youtube-downloads';
 import { getAiGateway, shutdownAiGateway } from './ai-instance';
@@ -71,6 +72,13 @@ export function createServer() {
     res.json({ connected: instagramService.hasSession() });
   });
 
+  app.post('/api/v1/internal/image-ocr', async (req, res) => {
+    if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress || '') || req.headers.origin) return res.sendStatus(403);
+    res.setHeader('Cache-Control', 'no-store');
+    try { res.json(await dispatchImageOcr(req.body)); }
+    catch (error) { res.status(400).json({ message: error instanceof Error ? error.message : String(error) }); }
+  });
+
   // Mount API Router tại /api/v1
   app.use('/api/v1', apiRouter);
 
@@ -93,7 +101,7 @@ export function startServer(port?: number): Promise<import('http').Server> {
   const app = createServer();
   return new Promise((resolve, reject) => {
     const server = app.listen(listenPort, '127.0.0.1');
-    server.once('close', () => { youtubeDownloads.shutdown(); shutdownScriptConverter(); shutdownAiGateway(); shutdownMediaJobs(); });
+    server.once('close', () => { youtubeDownloads.shutdown(); shutdownScriptConverter(); shutdownAiGateway(); shutdownMediaJobs(); shutdownImageOcr(); });
     server.once('listening', () => {
       console.log(`[Backend] Server running on http://127.0.0.1:${listenPort}/api/v1`);
       resolve(server);
@@ -105,7 +113,7 @@ export function startServer(port?: number): Promise<import('http').Server> {
 // Nếu chạy trực tiếp từ CLI (tsx watch backend/src/server.ts)
 if (require.main === module) {
   void startServer().then(server => {
-    const shutdown = () => { youtubeDownloads.shutdown(); shutdownScriptConverter(); shutdownAiGateway(); shutdownMediaJobs(); server.close(); };
+    const shutdown = () => { youtubeDownloads.shutdown(); shutdownScriptConverter(); shutdownAiGateway(); shutdownMediaJobs(); shutdownImageOcr(); server.close(); };
     process.once('SIGTERM', shutdown);
     process.once('SIGINT', shutdown);
   }).catch(error => {

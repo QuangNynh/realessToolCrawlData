@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Youtube, Instagram, ChevronLeft, ChevronRight, Settings, X, Rocket, FileText, Subtitles, FileAudio, Scissors } from 'lucide-react';
+import { Youtube, Instagram, ChevronLeft, ChevronRight, Settings, X, Rocket, FileText, Subtitles, FileAudio, Scissors, FileImage } from 'lucide-react';
 import { Button } from '../ui/button';
 
 const TikTokIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -52,6 +52,9 @@ const navItems: NavItem[] = [
     path: '/ai',
     icon: <Rocket className="h-5 w-5" />,
     color: 'text-amber-500',
+  },
+  {
+    label: 'Ảnh sang Text', path: '/image-to-text', icon: <FileImage className="h-5 w-5" />, color: 'text-indigo-500',
   },
   {
     label: 'AI Script Converter',

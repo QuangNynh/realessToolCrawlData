@@ -53,6 +53,7 @@ const formatDate = (createdAt?: string | null) => {
 const VideoViewPages = () => {
   const [channelUrl, setChannelUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [fetchError, setFetchError] = useState('')
   const [videoData, setVideoData] = useState<YouTubeVideo[]>([])
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
   const missingDateCount = useMemo(
@@ -66,6 +67,7 @@ const VideoViewPages = () => {
       return
     }
 
+    setFetchError('')
     setIsLoading(true)
     try {
       const response = await youtubeService.getUrlsAll(channelUrl)
@@ -73,7 +75,9 @@ const VideoViewPages = () => {
       setPagination(previous => ({ ...previous, pageIndex: 0 }))
       toast.success(`Đã tải ${response.length} video`)
     } catch (error) {
-      toast.error('Không thể tải danh sách video')
+      const message = error instanceof Error ? error.message : 'Không thể tải danh sách video'
+      setFetchError(message)
+      toast.error(message)
       console.error(error)
     } finally {
       setIsLoading(false)
@@ -213,6 +217,7 @@ const VideoViewPages = () => {
 
   return (
     <div className='space-y-4'>
+      {fetchError && <p role='alert' className='break-words rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive'>{fetchError}</p>}
       <Card className='min-w-0 p-4 sm:p-6'>
         <div className='space-y-4'>
           <div>
