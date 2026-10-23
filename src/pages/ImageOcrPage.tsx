@@ -64,6 +64,7 @@ export function ImageOcrPage() {
   });
   const completed = job?.items.filter(item => item.status === 'completed').length || 0;
   const failed = job?.items.filter(item => item.status === 'failed').length || 0;
+  const empty = job?.items.filter(item => item.status === 'completed' && !item.text?.trim()).length || 0;
   const running = job?.status === 'running';
   const working = snapshot.working ?? running;
   const locked = Boolean(job && job.status !== 'completed' && job.status !== 'failed');
@@ -149,6 +150,7 @@ export function ImageOcrPage() {
           </DialogContent>
         </Dialog>
         <div className="ocr-upload-actions">
+          {showingJob && !running && empty > 0 && <button type="button" className="ocr-run ocr-secondary-run" disabled={busy || working || !ai?.connected || !model || !keyId} onClick={() => control('retry')}><RotateCcw size={18} /> THỬ LẠI {empty} ẢNH TRỐNG</button>}
           {showingJob && job.error && <p role="alert" className="ocr-inline-error">{job.error}</p>}
           {showingJob && running ? <button className="ocr-run ocr-secondary-run" disabled={busy} onClick={() => control('pause')}><Pause size={18} /> TẠM DỪNG</button> : showingJob && job.status !== 'completed' ? <button className="ocr-run" disabled={busy || !ai?.connected || !model || !keyId} onClick={() => control(failed ? 'retry' : 'resume')}><RotateCcw size={18} /> {failed ? 'THỬ LẠI ẢNH LỖI / TIẾP TỤC' : 'TIẾP TỤC GIẢI MÃ 🔮'}</button> : <button className="ocr-run" disabled={busy || !folder || !ai?.connected || !model || !keyId} onClick={start}>{busy ? <Loader2 className="animate-spin" size={18} /> : null}CHẠY THẦN CHÚ 🔮</button>}
         </div>

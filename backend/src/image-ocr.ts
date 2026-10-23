@@ -73,7 +73,11 @@ export class ImageOcr {
     if (this.active) throw new Error('Chờ ảnh đang xử lý dừng rồi tiếp tục');
     this.job.model = this.config(model || this.job.model, keyId || this.job.keyId);
     this.job.keyId = keyId || this.job.keyId;
-    this.job.items.forEach(item => { if (item.status === 'failed') { item.status = 'pending'; delete item.error; } });
+    this.job.items.forEach(item => {
+      if (item.status === 'failed' || (action === 'retry' && item.status === 'completed' && !item.text?.trim())) {
+        item.status = 'pending'; delete item.error; delete item.text;
+      }
+    });
     this.job.status = 'running'; delete this.job.error; this.save(); this.start(); return this.snapshot();
   }
   private start() {
@@ -98,13 +102,15 @@ export class ImageOcr {
     if (image.length > 16 * 1024 * 1024) throw new Error('Ảnh sau chuẩn hóa vượt 16 MB; hãy giảm kích thước ảnh');
     if (signal.aborted) throw new Error('Đã tạm dừng');
     const result = await this.gateway().desktopChat(job.keyId, { model: job.model, messages: [{ role: 'user', content: [
-      { type: 'text', text: prompt }, { type: 'image_url', image_url: { url: `data:image/png;base64,${image.toString('base64')}` } },
+      { type: 'text', text: prompt + (item.attempts > 1 ? ' This is a verification pass because a previous attempt failed or found no text. Carefully inspect the entire image, including small and low-contrast text. Do not invent text.' : '') }, { type: 'image_url', image_url: { url: `data:image/png;base64,${image.toString('base64')}` } },
     ] }] }, signal);
     const choice = result.choices?.[0];
     if (choice?.finish_reason === 'length') throw new Error('Model trả text bị cắt. Chọn model khác hoặc chia ảnh nhỏ hơn');
     const text = (choice?.message as Record<string, unknown> | undefined)?.content;
     if (typeof text !== 'string' || !text.trim()) throw new Error('Model không trả text. Hãy chọn model hỗ trợ ảnh');
-    return text.trim() === '<NO_TEXT>' ? '' : oneLine(text);
+    const normalized = oneLine(text);
+    if (!normalized || /^<NO_TEXT>[.!]?$/i.test(normalized)) throw new Error('Chưa nhận dạng được chữ trong ảnh. Đã yêu cầu kiểm tra lại; có thể thử lại ảnh này hoặc đổi model');
+    return normalized;
   }
   private async process(signal: AbortSignal) {
     const job = this.job!;
