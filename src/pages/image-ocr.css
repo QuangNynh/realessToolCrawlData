@@ -148,3 +148,18 @@
 .ocr-reset:disabled { opacity: .45; }
 
 .ocr-result-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+
+.ocr-progress-header { position: sticky; top: 0; z-index: 10; margin-bottom: 20px; padding: 14px 18px; background: #ffffffed; border: 1px solid #dfe7ef; border-radius: 12px; box-shadow: 0 4px 16px #354a7010; backdrop-filter: blur(10px); }
+.ocr-progress-header .ocr-job-status { align-items: center; margin-bottom: 10px; font-size: 13px; }
+.ocr-progress-header strong { color: #354f70; font-variant-numeric: tabular-nums; }
+.ocr-progress-header .ocr-progress { margin-bottom: 0; height: 6px; }
+
+.ocr-progress-value { display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+
+.ocr-config-trigger { display: flex; width: 100%; align-items: center; gap: 7px; margin-top: 16px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; color: #53647c; background: #fff; text-align: left; font-size: 12px !important; }
+.ocr-config-trigger:hover:not(:disabled) { background: #f4f8fc; }
+.ocr-config-trigger:disabled { opacity: .45; }
+.ocr-config-dialog { color-scheme: light; }
+.ocr-config-dialog .ocr-config-body { padding: 0; gap: 16px; }
+.ocr-dialog-done { padding: 9px 22px; border-radius: 8px; background: #3a7b9a; color: white; font-size: 13px; font-weight: 600; }
+.ocr-dialog-done:focus-visible { outline: 2px solid #3a7b9a; outline-offset: 3px; }

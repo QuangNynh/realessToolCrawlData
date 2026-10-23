@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Check, Copy, Download, FolderOpen, Loader2, Pause, RotateCcw, Settings2, X } from 'lucide-react';
 import './image-ocr.css';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import type { AiSnapshot } from '../../backend/src/ai-types';
 import type { OcrRequest, OcrSnapshot, OcrItem } from '../../backend/src/image-ocr-types';
 
@@ -109,10 +110,10 @@ export function ImageOcrPage() {
   });
   const showingJob = job && !folder;
   return <div className="ocr-studio">
-    <header className="ocr-heading">
-      <h1><span className="ocr-wizard" aria-hidden="true">🧙</span><span>Trình Giải Mã Ảnh Siêu Phàm</span></h1>
-      <p>Công nghệ pháp sư, đọc chữ nhanh như chớp!</p>
-    </header>
+    {showingJob && <header className="ocr-progress-header">
+      <div className="ocr-job-status"><span>{{ running: 'Đang giải mã ảnh…', paused: 'Đã tạm dừng', completed: 'Đã hoàn tất', failed: 'Còn ảnh bị lỗi' }[job.status]}</span><strong className="ocr-progress-value">{completed}/{job.items.length} ảnh · {Math.round(completed / job.items.length * 100)}%{running && <Loader2 size={15} className="animate-spin" aria-label="Đang xử lý ảnh" />}{failed ? ` · ${failed} lỗi` : ''}</strong></div>
+      <div className="ocr-progress" role="progressbar" aria-label="Ảnh đã đọc" aria-valuenow={completed} aria-valuemin={0} aria-valuemax={job.items.length}><div style={{ width: `${completed / job.items.length * 100}%` }} /></div>
+    </header>}
     {error && <p role="alert" className="ocr-alert">{error.includes('Thao tác đọc ảnh không hợp lệ') ? 'Mở lại ứng dụng để dùng các thao tác mới. Tiến độ đã đọc vẫn được giữ.' : error}</p>}
     <div className="ocr-workspace">
       <section className="ocr-panel ocr-upload-panel" aria-labelledby="ocr-upload-heading">
@@ -133,18 +134,21 @@ export function ImageOcrPage() {
           <button type="button" className="ocr-choose" disabled={busy || locked || running} onClick={choose}>Chọn từ máy tính</button>
           {folder && <button className="ocr-clear" type="button" disabled={busy} onClick={() => setFolder(null)}><X size={13} /> Bỏ chọn folder</button>}
         </div>
-        <details className="ocr-config" open={!ai?.connected || undefined}>
-          <summary><Settings2 size={15} /><span>Model & API key</span><span className="ocr-model-caption">{ai?.models.find(item => item.id === model)?.name || 'Antigravity'}</span></summary>
-          <div className="ocr-config-body">
-            {!ai?.connected && <p>Kết nối tài khoản và tạo API key ở màn AI / Antigravity.</p>}
-            <label>Model hỗ trợ đọc ảnh<select className={selectClass} value={model} disabled={busy || running} onChange={event => setModel(event.target.value)}><option value="">Chọn model</option>{ai?.models.filter(item => item.kind === 'chat').map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-            <label>API key cá nhân<select className={selectClass} value={keyId} disabled={busy || running} onChange={event => setKeyId(event.target.value)}><option value="">Chọn API key</option>{ai?.keys.map(key => <option key={key.id} value={key.id}>{key.name} · {key.preview}</option>)}</select></label>
-            <button className="ocr-link" type="button" disabled={busy || running} onClick={() => void run(loadAi)}>Tải lại model / API key</button>
-          </div>
-        </details>
+        <Dialog>
+          <DialogTrigger asChild><button type="button" className="ocr-config-trigger" disabled={busy}><Settings2 size={15} /><span>Model & API key</span><span className="ocr-model-caption">{ai?.models.find(item => item.id === model)?.name || 'Antigravity'}</span></button></DialogTrigger>
+          <DialogContent className="ocr-config-dialog border-slate-200 bg-white text-slate-800">
+            <DialogHeader><DialogTitle>Model & API key</DialogTitle><DialogDescription className="text-slate-500">Chọn model hỗ trợ đọc ảnh và API key Antigravity của bạn.</DialogDescription></DialogHeader>
+            <div className="ocr-config-body">
+              {!ai?.connected && <p>Kết nối tài khoản và tạo API key ở màn AI / Antigravity.</p>}
+              <label>Model hỗ trợ đọc ảnh<select className={selectClass} value={model} disabled={busy || running} onChange={event => setModel(event.target.value)}><option value="">Chọn model</option>{ai?.models.filter(item => item.kind === 'chat').map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+              <label>API key cá nhân<select className={selectClass} value={keyId} disabled={busy || running} onChange={event => setKeyId(event.target.value)}><option value="">Chọn API key</option>{ai?.keys.map(key => <option key={key.id} value={key.id}>{key.name} · {key.preview}</option>)}</select></label>
+              <button className="ocr-link" type="button" disabled={busy || running} onClick={() => void run(loadAi)}>Tải lại model / API key</button>
+              {error && <p role="alert" className="ocr-inline-error">{error}</p>}
+            </div>
+            <DialogFooter><DialogClose asChild><button type="button" className="ocr-dialog-done">Xong</button></DialogClose></DialogFooter>
+          </DialogContent>
+        </Dialog>
         <div className="ocr-upload-actions">
-          {showingJob && <div className="ocr-job-status"><span>{{ running: 'Đang giải mã ảnh…', paused: 'Đã tạm dừng', completed: 'Đã hoàn tất', failed: 'Còn ảnh bị lỗi' }[job.status]}</span><span>{completed}/{job.items.length}</span></div>}
-          {showingJob && <div className="ocr-progress" role="progressbar" aria-label="Ảnh đã đọc" aria-valuenow={completed} aria-valuemin={0} aria-valuemax={job.items.length}><div style={{ width: `${completed / job.items.length * 100}%` }} /></div>}
           {showingJob && job.error && <p role="alert" className="ocr-inline-error">{job.error}</p>}
           {showingJob && running ? <button className="ocr-run ocr-secondary-run" disabled={busy} onClick={() => control('pause')}><Pause size={18} /> TẠM DỪNG</button> : showingJob && job.status !== 'completed' ? <button className="ocr-run" disabled={busy || !ai?.connected || !model || !keyId} onClick={() => control(failed ? 'retry' : 'resume')}><RotateCcw size={18} /> {failed ? 'THỬ LẠI ẢNH LỖI / TIẾP TỤC' : 'TIẾP TỤC GIẢI MÃ 🔮'}</button> : <button className="ocr-run" disabled={busy || !folder || !ai?.connected || !model || !keyId} onClick={start}>{busy ? <Loader2 className="animate-spin" size={18} /> : null}CHẠY THẦN CHÚ 🔮</button>}
         </div>
