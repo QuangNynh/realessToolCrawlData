@@ -398,12 +398,12 @@ if (!gotSingleInstanceLock) {
 
     ipcMain.handle('ai:request', async (event, request) => {
       if (!isTrustedAppSender(event.sender)) throw new Error('Unauthorized sender');
-      if (!request || typeof request !== 'object' || !['status', 'connect', 'cancel-connect', 'disconnect', 'refresh-models', 'create-key', 'revoke-key', 'chat'].includes(request.action)) throw new Error('Thao tác AI không hợp lệ');
+      if (!request || typeof request !== 'object' || !['status', 'connect', 'cancel-connect', 'disconnect', 'refresh-models', 'create-key', 'revoke-key', 'chat', 'quota'].includes(request.action)) throw new Error('Thao tác AI không hợp lệ');
       const invoke = async (input: unknown) => {
         if (!isDev) return require('../dist-backend/ai-instance').getAiGateway().dispatch(input);
         const response = await fetch('http://127.0.0.1:8695/api/v1/internal/ai', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
-          signal: AbortSignal.timeout(request.action === 'chat' ? 190_000 : 35_000),
+          signal: AbortSignal.timeout(request.action === 'chat' ? 190_000 : request.action === 'quota' ? 60_000 : 35_000),
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || 'Không thể truy cập API AI');

@@ -113,3 +113,7 @@ Settings → Kết nối API: nhập URL HTTP/HTTPS đầy đủ (có thể dán
 ## Đọc chữ từ folder ảnh
 
 Màn **Ảnh sang Text** dùng model Antigravity hỗ trợ ảnh để đọc lần lượt theo tên file (1, 2, …, 10), mỗi ảnh một dòng trong TXT. Có tạm dừng/tiếp tục/thử lại ảnh lỗi và lưu tiến độ. Xem [hướng dẫn sử dụng](docs/image-to-text.md).
+
+## Quota Antigravity
+
+Màn **Quota** theo cơ chế `/dashboard/quota` của 9router: quota từng model và nhóm Gemini/Claude & GPT (5h/Weekly), thời điểm reset, tự làm mới 60 giây, cache, sắp xếp và ẩn/hiện dòng. Dùng tài khoản Antigravity đã kết nối trong app. Xem [chi tiết](docs/quota.md).

@@ -7,6 +7,7 @@ import { YouTubeToolsPage } from './pages/YouTubeToolsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AiPage } from './pages/AiPage';
 import { ScriptConverterPage } from './pages/ScriptConverterPage';
+import { QuotaPage } from './pages/QuotaPage';
 import { ImageOcrPage } from './pages/ImageOcrPage';
 import { AudioToolsPage } from './pages/AudioToolsPage';
 
@@ -20,6 +21,8 @@ export function App() {
           <Route path="/instagram" element={<InstagramPage />} />
           <Route path="/tiktok" element={<TikTokPage />} />
           <Route path="/pinterest" element={<PinterestPage />} />
+          <Route path="/dashboard/quota" element={<QuotaPage />} />
+          <Route path="/quota" element={<QuotaPage />} />
           <Route path="/image-to-text" element={<ImageOcrPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/ai" element={<AiPage />} />

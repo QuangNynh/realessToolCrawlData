@@ -1,3 +1,4 @@
+import { parseAntigravityQuota, type AiQuotaSnapshot } from './antigravity-quota';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, Server } from 'node:http';
 import { once } from 'node:events';
@@ -18,6 +19,9 @@ export class AiGateway {
   private refreshing?: Promise<string>;
   private modelRefresh?: Promise<AiModel[]>;
   private legacyModelRefreshAttempted = false;
+  private quotaCache?: AiQuotaSnapshot;
+  private quotaPending?: { accountId: string; promise: Promise<AiQuotaSnapshot> };
+  private quotaSummary?: { accountId: string; data: Json; expiresAt: number };
   constructor(directory: string, private fetcher: typeof fetch = fetch, private config = antigravityConfig) { this.store = new AiStore(directory); }
 
   snapshot(): AiSnapshot {
@@ -99,6 +103,7 @@ export class AiGateway {
     return this.snapshot();
   }
   disconnect() {
+    this.quotaCache = undefined; this.quotaSummary = undefined;
     this.cancelConnect();
     this.store.save({ keys: this.store.state.keys, models: [] });
     this.error = undefined;
@@ -211,6 +216,47 @@ export class AiGateway {
     return this.modelRefresh;
   }
 
+  async quota(force = false): Promise<AiQuotaSnapshot> {
+    const account = this.store.state.account;
+    if (!account) throw new AiError('Hãy kết nối Antigravity trước khi xem quota', 503, 'provider_not_connected');
+    if (!force && this.quotaCache?.accountId === account.id && Date.now() - Date.parse(this.quotaCache.updatedAt) < 60_000) return structuredClone(this.quotaCache);
+    if (this.quotaPending?.accountId === account.id) return structuredClone(await this.quotaPending.promise);
+    const promise = (async () => {
+      const messages: string[] = [];
+      const subscription = await this.authorizedPost(`${this.config.codeAssistUrl}/v1internal:loadCodeAssist`, { metadata: antigravityMetadata(), mode: 1 }, undefined, 10_000)
+        .then(response => this.readJson(response)).catch(() => { messages.push('Không đọc được thông tin gói tài khoản.'); return {} as Json; });
+      const project = typeof subscription.cloudaicompanionProject === 'string' ? subscription.cloudaicompanionProject : subscription.cloudaicompanionProject?.id || account.projectId;
+      const body = project ? { project } : {};
+      const modelsResponse = await this.authorizedPost(`${this.config.baseUrl}/v1internal:fetchAvailableModels`, body, undefined, 10_000);
+      if ([401, 403].includes(modelsResponse.status)) {
+        await modelsResponse.body?.cancel();
+        return { accountId: account.id, email: account.email, plan: subscription.currentTier?.name || 'Unknown', updatedAt: new Date().toISOString(), rows: [], message: `Antigravity không cho đọc quota (HTTP ${modelsResponse.status}). Chat có thể vẫn hoạt động.` };
+      }
+      const models = await this.readJson(modelsResponse);
+      let summary: Json = {};
+      if (!force && this.quotaSummary?.accountId === account.id && this.quotaSummary.expiresAt > Date.now()) summary = this.quotaSummary.data;
+      else {
+        try {
+          summary = await this.readJson(await this.authorizedPost(`${this.config.baseUrl}/v1internal:retrieveUserQuotaSummary`, body, undefined, 10_000));
+          const groups = summary.groups || summary.quotaSummary?.groups;
+          if (Array.isArray(groups) && groups.length) this.quotaSummary = { accountId: account.id, data: summary, expiresAt: Date.now() + 180_000 };
+        } catch { messages.push('Chưa đọc được quota tổng hợp 5h/Weekly.'); }
+      }
+      let available = this.store.state.models;
+      try { available = antigravityModels(models).models; } catch { /* Existing catalog still identifies usable models. */ }
+      const rows = parseAntigravityQuota(models, summary, subscription, available);
+      if (!rows.length) messages.push('Antigravity chưa cung cấp dữ liệu hạn mức cho tài khoản này.');
+      return { accountId: account.id, email: account.email, plan: subscription.currentTier?.name || subscription.paidTier?.name || 'Unknown', updatedAt: new Date().toISOString(), rows, message: messages.join(' ') || undefined };
+    })();
+    this.quotaPending = { accountId: account.id, promise };
+    try {
+      const result = await promise;
+      if (this.store.state.account?.id !== account.id) throw new AiError('Tài khoản đã thay đổi. Hãy làm mới quota.', 409);
+      this.quotaCache = result;
+      return structuredClone(result);
+    } finally { if (this.quotaPending?.promise === promise) this.quotaPending = undefined; }
+  }
+
   async generate(body: Json, signal?: AbortSignal): Promise<{ response: Response; model: string; streaming: boolean }> {
     const rawModel = body?.model;
     if (typeof rawModel !== 'string' || !/^(?:ag\/)?[\w.():-]{1,180}$/.test(rawModel)) throw new AiError('Cần tên model hợp lệ từ GET /v1/models');
@@ -284,6 +330,7 @@ export class AiGateway {
       case 'connect': return this.beginConnect();
       case 'cancel-connect': return this.cancelConnect();
       case 'disconnect': return this.disconnect();
+      case 'quota': return this.quota(request.force === true);
       case 'refresh-models': await this.models(true); return this.snapshot();
       case 'create-key': return this.createKey(request.name);
       case 'revoke-key': return this.revokeKey(request.id);
