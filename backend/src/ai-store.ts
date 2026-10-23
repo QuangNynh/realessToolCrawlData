@@ -6,7 +6,7 @@ import type { AiKey, AiModel } from './ai-types';
 export interface AiAccount { id: string; accessToken: string; refreshToken: string; expiresAt: number; email: string; projectId: string }
 export interface AiState {
   account?: AiAccount; keys: (AiKey & { hash: string })[]; models: AiModel[]; modelsUpdatedAt?: string;
-  modelAliases?: Record<string, string>; defaultModelId?: string;
+  modelCatalogVersion?: number; modelAliases?: Record<string, string>; defaultModelId?: string;
 }
 
 // Account tokens stay in the backend. The store and its local encryption key

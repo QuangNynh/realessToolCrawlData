@@ -19,7 +19,7 @@ export const antigravityConfig = {
     'https://www.googleapis.com/auth/cclog',
     'https://www.googleapis.com/auth/experimentsandconfigs',
   ],
-  userAgent: `antigravity/2.11.0 ${os.platform()}/${os.arch()}`,
+  userAgent: `antigravity/ide/2.22.0 ${os.platform()}/${os.arch()}`,
 };
 export function antigravityMetadata() {
   const platform = os.platform() === 'darwin' ? (os.arch() === 'arm64' ? 2 : 1)

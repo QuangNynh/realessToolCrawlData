@@ -199,7 +199,7 @@ export class AiGateway {
   }
   async models(force = false): Promise<AiModel[]> {
     if (!this.store.state.account) throw new AiError('Hãy kết nối tài khoản Antigravity trước', 503, 'provider_not_connected');
-    if (!force && this.store.state.modelAliases && this.store.state.models.length && Date.now() - Date.parse(this.store.state.modelsUpdatedAt || '') < 300_000) return structuredClone(this.store.state.models);
+    if (!force && this.store.state.modelCatalogVersion === 2 && this.store.state.modelAliases && this.store.state.models.length && Date.now() - Date.parse(this.store.state.modelsUpdatedAt || '') < 300_000) return structuredClone(this.store.state.models);
     if (this.modelRefresh) return this.modelRefresh;
     const projectId = this.store.state.account.projectId;
     const accountId = this.store.state.account.id;
@@ -209,7 +209,7 @@ export class AiGateway {
       const data = await this.readJson(response);
       const catalog = antigravityModels(data);
       if (this.store.state.account?.id !== accountId) throw new AiError('Kết nối đã thay đổi. Thử lại', 409);
-      this.store.save({ ...this.store.state, models: catalog.models, modelAliases: catalog.aliases, defaultModelId: catalog.defaultModelId, modelsUpdatedAt: new Date().toISOString() });
+      this.store.save({ ...this.store.state, models: catalog.models, modelCatalogVersion: 2, modelAliases: catalog.aliases, defaultModelId: catalog.defaultModelId, modelsUpdatedAt: new Date().toISOString() });
       this.error = undefined;
       return structuredClone(catalog.models);
     })().finally(() => { this.modelRefresh = undefined; });
@@ -320,9 +320,8 @@ export class AiGateway {
   async dispatch(request: AiRequest) {
     switch (request?.action) {
       case 'status':
-        // Refresh legacy caches once: old releases saved every catalog entry,
-        // including IDs that Google explicitly retired.
-        if (this.store.state.account && !this.store.state.modelAliases && !this.legacyModelRefreshAttempted) {
+        // Refresh once to discard cached models without live account confirmation.
+        if (this.store.state.account && this.store.state.modelCatalogVersion !== 2 && !this.legacyModelRefreshAttempted) {
           this.legacyModelRefreshAttempted = true;
           try { await this.models(); } catch (error) { this.error = this.message(error); }
         }

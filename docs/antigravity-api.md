@@ -25,7 +25,9 @@ curl http://127.0.0.1:8696/v1/chat/completions \
 
 `GET /v1/models` trả về danh sách model lấy trực tiếp từ tài khoản, cache tối đa 5 phút. Bấm **Làm mới models** để cập nhật ngay. ID có dạng `ag/...`; API cũng chấp nhận ID gốc không có tiền tố `ag/`.
 
-Danh sách chat lấy từ `agentModelSorts` của Google, kèm model tạo ảnh; các ID phục vụ tab/command và ID đã ngừng hỗ trợ trong `deprecatedModelIds` được loại khỏi lựa chọn. Nếu Google cung cấp `newModelId`, yêu cầu bằng ID cũ tự chuyển sang ID thay thế và phản hồi ghi model thực sự đã gọi. Ví dụ Google hiện thay `gemini-3.1-pro-high` bằng `gemini-pro-agent`. Model mặc định theo `defaultAgentModelId` của tài khoản. Cache lưu theo phiên bản cũ được làm mới một lần khi mở màn AI, giữ nguyên key và phiên đăng nhập.
+Danh sách chỉ gồm model hiện có trong phản hồi API Antigravity của tài khoản; khi Google cung cấp `agentModelSorts`, chỉ lấy model trong nhóm này và model tạo ảnh. Loại model nội bộ, vô hiệu hóa, ngừng hỗ trợ và model phục vụ tab/command. Catalog 9router chỉ bổ sung tên hiển thị, không thêm model chưa được API xác nhận. Quota bằng 0 không có nghĩa model đã ngừng hoạt động.
+
+Gọi đúng ID Google trả về. Nếu Google cung cấp `newModelId`, ID cũ chỉ được chuyển sang model thay thế còn trong danh sách. Cache cũ được làm mới một lần khi mở màn AI; bấm **Làm mới models** để cập nhật ngay. Quyền truy cập và quota được kiểm tra bởi Google khi gọi model, không gửi prompt thử hàng loạt để kiểm tra danh sách.
 
 Giao diện gọi qua Electron IPC, sau đó backend gửi API đến Google; request Google không xuất hiện trong tab Network của renderer. Terminal backend ghi endpoint, model, HTTP status và thời gian gọi, không ghi prompt, API key hoặc token. Lỗi HTTP từ Antigravity hiển thị thêm model và mã HTTP để phân biệt lỗi tham số với quota/quyền tài khoản.
 

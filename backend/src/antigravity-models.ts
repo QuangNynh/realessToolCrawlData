@@ -1,9 +1,9 @@
 import { AiError, AiModel } from './ai-types';
+import { antigravityCatalog } from './antigravity-catalog';
 
 type Json = Record<string, any>;
 const validId = (id: unknown): id is string => typeof id === 'string' && /^[\w.():-]{1,180}$/.test(id);
-// fetchAvailableModels includes retired IDs and command/tab models in `models`.
-// Agent choices and the explicit retirement map determine usable chat IDs.
+// Only live account models are eligible; the bundled catalog supplies labels only.
 export function antigravityModels(data: Json) {
   const source = data.models || data.data;
   const entries: [string, Json][] = Array.isArray(source)
@@ -29,8 +29,8 @@ export function antigravityModels(data: Json) {
   }
   const imageIds = new Set<string>((Array.isArray(data.imageGenerationModelIds) ? data.imageGenerationModelIds : []).filter(validId));
   const models: AiModel[] = entries.filter(([id, info]) => validId(id) && info && !info.isInternal && !info.isDisabled && !info.isDeprecated && !retired.has(id)
-    && (agentIds.size ? agentIds.has(id) || imageIds.has(id) : !/^(?:tab_|chat_)/.test(id)))
-    .map(([id, info]) => ({ id: `ag/${id}`, name: typeof info.displayName === 'string' ? info.displayName : typeof info.name === 'string' ? info.name : id,
+    && !/^(?:tab_|chat_|command_)/.test(id) && (agentIds.size === 0 || agentIds.has(id) || imageIds.has(id)))
+    .map(([id, info]) => ({ id: `ag/${id}`, name: typeof info.displayName === 'string' ? info.displayName : typeof info.name === 'string' ? info.name : antigravityCatalog.find(item => item.id === id)?.name || id,
       kind: imageIds.has(id) || /image|imagen/i.test(id) ? 'image' : 'chat' }));
   if (!models.length) throw new AiError('Antigravity chưa trả về model khả dụng. Bấm làm mới hoặc kiểm tra tài khoản', 502, 'upstream_error');
   const unique = [...new Map(models.map(model => [model.id, model])).values()].sort((a, b) => a.id.localeCompare(b.id));

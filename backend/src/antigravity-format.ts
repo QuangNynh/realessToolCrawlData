@@ -59,6 +59,11 @@ export function buildAntigravityRequest(body: unknown, model: string, projectId:
   }
   if (!contents.length) throw new AiError('Cần ít nhất một tin nhắn user hoặc assistant');
   const generationConfig: Json = {};
+  const variant = model.match(/\((low|medium|high)\)$/);
+  if (variant) {
+    model = model.slice(0, variant.index);
+    generationConfig.thinkingConfig = { thinkingLevel: variant[1], includeThoughts: true };
+  }
   for (const [from, to, max] of [['temperature', 'temperature', 2], ['top_p', 'topP', 1]] as const) {
     if (body[from] != null) {
       if (typeof body[from] !== 'number' || !Number.isFinite(body[from]) || body[from] < 0 || body[from] > max) throw new AiError(`${from} ngoài khoảng hợp lệ`);
