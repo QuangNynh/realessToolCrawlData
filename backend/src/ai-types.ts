@@ -1,5 +1,5 @@
 export interface AiModel { id: string; name: string; kind: 'chat' | 'image' }
-export interface AiKey { id: string; name: string; preview: string; createdAt: string; lastUsedAt?: string }
+export interface AiKey { id: string; name: string; preview: string; createdAt: string; lastUsedAt?: string; copyable?: boolean }
 export interface AiSnapshot {
   baseUrl?: string;
   connected: boolean;
@@ -13,7 +13,7 @@ export interface AiSnapshot {
   modelsUpdatedAt?: string;
   keys: AiKey[];
 }
-export type AiAction = 'status' | 'connect' | 'cancel-connect' | 'disconnect' | 'refresh-models' | 'create-key' | 'revoke-key' | 'chat' | 'quota';
+export type AiAction = 'status' | 'connect' | 'cancel-connect' | 'disconnect' | 'refresh-models' | 'create-key' | 'copy-key' | 'revoke-key' | 'chat' | 'quota';
 export interface AiRequest { action: AiAction; name?: string; id?: string; apiKey?: string; model?: string; prompt?: string; force?: boolean }
 export class AiError extends Error {
   constructor(message: string, public status = 400, public code = 'invalid_request_error', public retryAfter?: string) { super(message); }

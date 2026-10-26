@@ -117,3 +117,24 @@ Màn **Ảnh sang Text** dùng model Antigravity hỗ trợ ảnh để đọc l
 ## Quota Antigravity
 
 Màn **Quota** theo cơ chế `/dashboard/quota` của 9router: quota từng model và nhóm Gemini/Claude & GPT (5h/Weekly), thời điểm reset, tự làm mới 60 giây, cache, sắp xếp và ẩn/hiện dòng. Dùng tài khoản Antigravity đã kết nối trong app. Xem [chi tiết](docs/quota.md).
+
+Hướng dẫn riêng: [API tạo ảnh Gemini 3.1 Flash Image](docs/gemini-flash-image-api.md).
+
+### Cài dependency khi GitHub API bị rate limit
+
+Chạy `yarn install` như bình thường. `.yarnrc` cho Yarn Classic bỏ bộ tải mặc định của `youtube-dl-exec`; postinstall của dự án chuẩn bị yt-dlp từ bản phát hành cố định bằng link trực tiếp, kiểm tra SHA-256 và cài đầy đủ runtime. Không cần GitHub token. Các script cài native dependency khác vẫn chạy.
+
+Nếu dùng npm, đặt biến môi trường để bỏ bộ tải của dependency:
+
+```sh
+YOUTUBE_DL_SKIP_DOWNLOAD=true npm ci
+```
+
+PowerShell:
+
+```powershell
+$env:YOUTUBE_DL_SKIP_DOWNLOAD = 'true'
+npm ci
+```
+
+Nếu dependency đã cài nhưng thiếu binary, chạy `yarn postinstall` hoặc `npm run postinstall`. Cần mạng ở lần tải đầu; các lần sau dùng archive đã xác minh trong `build/yt-dlp/`. Tự động chuẩn bị runtime cho macOS/Windows.

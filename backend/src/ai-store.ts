@@ -5,12 +5,12 @@ import type { AiKey, AiModel } from './ai-types';
 
 export interface AiAccount { id: string; accessToken: string; refreshToken: string; expiresAt: number; email: string; projectId: string }
 export interface AiState {
-  account?: AiAccount; keys: (AiKey & { hash: string })[]; models: AiModel[]; modelsUpdatedAt?: string;
+  account?: AiAccount; keys: (AiKey & { hash: string; secret?: string })[]; models: AiModel[]; modelsUpdatedAt?: string;
   modelCatalogVersion?: number; modelAliases?: Record<string, string>; defaultModelId?: string;
 }
 
 // Account tokens stay in the backend. The store and its local encryption key
-// are owner-readable only; API keys are stored as SHA-256 hashes, never plaintext.
+// are owner-readable only; key secrets stay inside the encrypted state file.
 export class AiStore {
   private readonly file: string;
   private readonly key: Buffer;

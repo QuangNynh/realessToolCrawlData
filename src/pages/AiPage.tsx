@@ -116,14 +116,23 @@ export function AiPage() {
         <Button type='submit' disabled={busy || !keyName.trim() || !bridge}>Tạo API key</Button>
       </form>
       {newKey && <div className='rounded-md border border-primary/40 bg-primary/5 p-3 space-y-2'>
-        <p className='text-sm font-medium'>Key mới — sao chép và lưu lại, ứng dụng chỉ hiển thị đầy đủ lần này.</p>
+        <p className='text-sm font-medium'>Key mới — sao chép và lưu lại, có thể sao chép lại tại danh sách bên dưới.</p>
         <div className='flex min-w-0 items-center gap-2'><code className='min-w-0 flex-1 select-all break-all text-sm'>{newKey}</code><Button variant='outline' size='icon' aria-label='Sao chép API key mới' onClick={() => void copy(newKey)}><Copy className='h-4 w-4' /></Button></div>
         <Button variant='ghost' size='sm' onClick={() => setNewKey('')}>Ẩn key</Button>
       </div>}
       <div className='space-y-2'>{snapshot.keys.map(key => <div key={key.id} className='flex flex-wrap items-center justify-between gap-2 rounded-md border p-3'>
         <div className='min-w-0'><p className='break-words text-sm font-medium'>{key.name}</p><code className='break-all text-xs text-muted-foreground'>{key.preview}</code>
           <p className='text-xs text-muted-foreground'>{key.lastUsedAt ? `Dùng lần cuối: ${new Date(key.lastUsedAt).toLocaleString('vi-VN')}` : 'Chưa sử dụng'}</p></div>
+        <div className='flex flex-wrap gap-2'>
+        <Button variant='outline' size='sm' disabled={busy || !key.copyable} title={key.copyable ? 'Sao chép toàn bộ API key' : 'Key cũ chỉ lưu mã băm. Tạo key mới để sao chép lại.'} onClick={() => { void (async () => {
+          setBusy(true);
+          try { const result = await request({ action: 'copy-key', id: key.id }); await copy(result.key); }
+          catch (error) { toast.error(messageOf(error)); }
+          finally { if (mounted.current) setBusy(false); }
+        })(); }}><Copy className='mr-2 h-4 w-4' />Sao chép key</Button>
         <Button variant='outline' size='sm' className='text-destructive' disabled={busy || chatting} onClick={() => void act({ action: 'revoke-key', id: key.id })}><Trash2 className='mr-2 h-4 w-4' />Thu hồi</Button>
+        </div>
+        {!key.copyable && <p className='w-full text-xs text-muted-foreground'>Key cũ không thể sao chép lại; tạo key mới để dùng tính năng này.</p>}
       </div>)}</div>
       {!snapshot.keys.length && <p className='text-sm text-muted-foreground'>Chưa có key. Mỗi key được tạo sẽ dùng được cho toàn bộ model khả dụng của tài khoản.</p>}
     </section>

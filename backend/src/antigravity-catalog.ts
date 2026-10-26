@@ -1,10 +1,22 @@
-// Antigravity catalog from locally installed 9router 0.5.99 (MIT).
+// Antigravity catalog from locally installed 9router 0.5.109 (MIT).
 // Provider catalog is not a guarantee of access for the connected account.
 export const antigravityCatalog = [
   {
     "id": "gemini-4-argon-high",
     "name": "Gemini 4 Argon (High)",
     "upstreamModelId": "gemini-4-argon-high(high)",
+    "kind": "chat"
+  },
+  {
+    "id": "gemini-4-argon-medium",
+    "name": "Gemini 4 Argon (Medium)",
+    "upstreamModelId": "gemini-4-argon-medium(medium)",
+    "kind": "chat"
+  },
+  {
+    "id": "gemini-4-argon-low",
+    "name": "Gemini 4 Argon (Low)",
+    "upstreamModelId": "gemini-4-argon-low(low)",
     "kind": "chat"
   },
   {

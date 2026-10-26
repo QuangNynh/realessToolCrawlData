@@ -4,7 +4,7 @@
 
 1. Mở **AI / Antigravity** trong thanh điều hướng.
 2. Bấm **Kết nối Antigravity**. Đăng nhập tài khoản Google và cấp quyền trong trình duyệt hệ thống. Quay lại app để xem trạng thái kết nối.
-3. Bấm **Tạo API key**, sao chép key mới và lưu ở nơi riêng. Key chỉ hiển thị đầy đủ ngay sau khi tạo.
+3. Bấm **Tạo API key**, sao chép key mới và lưu ở nơi riêng. Bấm **Sao chép key** tại từng dòng để lấy lại key mới. Key tạo bằng bản cũ chỉ lưu mã băm nên cần tạo key mới để dùng tính năng này.
 4. Chọn model từ danh sách hoặc phần **Gọi thử bằng API key**, nhập nội dung và bấm **Gọi model**.
 
 App kết nối trực tiếp Google Antigravity. Không cần cài/chạy 9router. Một key dùng cho toàn bộ model mà tài khoản Antigravity trả về, gồm các model chat và tạo ảnh. Quyền truy cập và quota vẫn thuộc tài khoản Google đã kết nối. Kết nối Antigravity không cấp quyền sử dụng các nhà cung cấp khác trong 9router.
@@ -37,7 +37,7 @@ Thu hồi key khiến các yêu cầu mới bằng key đó trả về HTTP 401.
 
 ## Lưu trữ và OAuth
 
-Dữ liệu nằm trong `DATA_DIR/ai-gateway/`: `state.enc` mã hóa AES-256-GCM và `encryption.key` là khóa mã hóa cục bộ. Cả hai chỉ cho chủ sở hữu đọc/ghi trên hệ điều hành hỗ trợ quyền POSIX. Key API được tạo bằng 32 byte ngẫu nhiên, chỉ lưu SHA-256 hash. API quản lý chỉ nhận qua Electron IPC hoặc internal POST từ loopback không có Origin. Token Google không được gửi xuống renderer.
+Dữ liệu nằm trong `DATA_DIR/ai-gateway/`: `state.enc` mã hóa AES-256-GCM và `encryption.key` là khóa mã hóa cục bộ. Cả hai chỉ cho chủ sở hữu đọc/ghi trên hệ điều hành hỗ trợ quyền POSIX. Key API được tạo bằng 32 byte ngẫu nhiên. Lưu SHA-256 hash để xác thực và bản đầy đủ bên trong state.enc mã hóa để sao chép theo yêu cầu. Snapshot định kỳ không trả bản đầy đủ; chỉ thao tác sao chép nội bộ mới trả key đã chọn. API quản lý chỉ nhận qua Electron IPC hoặc internal POST từ loopback không có Origin. Token Google không được gửi xuống renderer.
 
 Đăng nhập dùng trình duyệt hệ thống, callback loopback cổng ngẫu nhiên, state và PKCE S256; hết thời gian sau 5 phút. Access token tự được làm mới bằng refresh token, các yêu cầu đồng thời dùng chung lần làm mới. Có thể đặt `ANTIGRAVITY_CLIENT_ID` và `ANTIGRAVITY_CLIENT_SECRET` để dùng cấu hình OAuth client tương thích khác. Client mặc định là cấu hình installed-app công khai mà Antigravity/9router sử dụng; đây là định danh ứng dụng, không phải thông tin đăng nhập cá nhân.
 

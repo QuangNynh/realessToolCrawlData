@@ -28,13 +28,13 @@ export class AiGateway {
     const { account, keys, models, modelsUpdatedAt } = this.store.state;
     return { connected: Boolean(account), connecting: Boolean(this.login), email: account?.email, projectId: account?.projectId,
       error: this.error, models: structuredClone(models), modelsUpdatedAt, defaultModelId: this.store.state.defaultModelId, modelAliases: { ...this.store.state.modelAliases },
-      keys: keys.map(({ hash: _hash, ...key }) => ({ ...key })) };
+      keys: keys.map(({ hash: _hash, secret: _secret, ...key }) => ({ ...key, copyable: Boolean(_secret) })) };
   }
   createKey(name: unknown) {
     if (typeof name !== 'string' || !name.trim() || name.trim().length > 80) throw new AiError('Tên key cần từ 1 đến 80 ký tự');
     if (this.store.state.keys.length >= 100) throw new AiError('Đã có 100 key. Thu hồi key không dùng trước khi tạo thêm');
     const key = `sk-crawldata-${randomBytes(32).toString('base64url')}`;
-    const record = { id: randomUUID(), name: name.trim(), preview: `${key.slice(0, 16)}…${key.slice(-4)}`, hash: hashKey(key), createdAt: new Date().toISOString() };
+    const record = { id: randomUUID(), name: name.trim(), preview: `${key.slice(0, 16)}…${key.slice(-4)}`, hash: hashKey(key), secret: key, createdAt: new Date().toISOString() };
     this.store.save({ ...this.store.state, keys: [...this.store.state.keys, record] });
     return { ...this.snapshot(), createdKey: { id: record.id, name: record.name, key } };
   }
@@ -42,6 +42,12 @@ export class AiGateway {
     if (typeof id !== 'string' || !this.store.state.keys.some(key => key.id === id)) throw new AiError('Không tìm thấy API key', 404);
     this.store.save({ ...this.store.state, keys: this.store.state.keys.filter(key => key.id !== id) });
     return this.snapshot();
+  }
+  private keyForCopy(id: unknown) {
+    const record = this.store.state.keys.find(key => key.id === id);
+    if (!record) throw new AiError('Không tìm thấy API key', 404);
+    if (!record.secret) throw new AiError('Key cũ chỉ lưu mã băm, không thể sao chép lại. Hãy tạo key mới');
+    return { key: record.secret };
   }
   authenticate(key: unknown) {
     if (typeof key !== 'string' || key.length > 256 || !key.startsWith('sk-crawldata-')) throw new AiError('API key không hợp lệ hoặc đã thu hồi', 401, 'invalid_api_key');
@@ -132,7 +138,12 @@ export class AiGateway {
       body: new URLSearchParams({ client_id: this.config.clientId, client_secret: this.config.clientSecret, ...body }), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000) });
     return this.readJson(response);
   }
-  private headers(token: string) { return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'User-Agent': this.config.userAgent, 'x-request-source': 'local' }; }
+  private headers(token: string) {
+    return {
+      Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'User-Agent': this.config.userAgent,
+      'X-Client-Name': 'antigravity', 'X-Client-Version': this.config.clientVersion || '2.24.0', 'x-request-source': 'local',
+    };
+  }
   private async post(url: string, token: string, body: Json, signal?: AbortSignal, timeout = 30_000) {
     return this.fetcher(url, { method: 'POST', headers: this.headers(token), body: JSON.stringify(body), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeout)]) : AbortSignal.timeout(timeout) });
   }
@@ -199,7 +210,7 @@ export class AiGateway {
   }
   async models(force = false): Promise<AiModel[]> {
     if (!this.store.state.account) throw new AiError('Hãy kết nối tài khoản Antigravity trước', 503, 'provider_not_connected');
-    if (!force && this.store.state.modelCatalogVersion === 2 && this.store.state.modelAliases && this.store.state.models.length && Date.now() - Date.parse(this.store.state.modelsUpdatedAt || '') < 300_000) return structuredClone(this.store.state.models);
+    if (!force && this.store.state.modelCatalogVersion === 3 && this.store.state.modelAliases && this.store.state.models.length && Date.now() - Date.parse(this.store.state.modelsUpdatedAt || '') < 300_000) return structuredClone(this.store.state.models);
     if (this.modelRefresh) return this.modelRefresh;
     const projectId = this.store.state.account.projectId;
     const accountId = this.store.state.account.id;
@@ -209,7 +220,7 @@ export class AiGateway {
       const data = await this.readJson(response);
       const catalog = antigravityModels(data);
       if (this.store.state.account?.id !== accountId) throw new AiError('Kết nối đã thay đổi. Thử lại', 409);
-      this.store.save({ ...this.store.state, models: catalog.models, modelCatalogVersion: 2, modelAliases: catalog.aliases, defaultModelId: catalog.defaultModelId, modelsUpdatedAt: new Date().toISOString() });
+      this.store.save({ ...this.store.state, models: catalog.models, modelCatalogVersion: 3, modelAliases: catalog.aliases, defaultModelId: catalog.defaultModelId, modelsUpdatedAt: new Date().toISOString() });
       this.error = undefined;
       return structuredClone(catalog.models);
     })().finally(() => { this.modelRefresh = undefined; });
@@ -321,7 +332,7 @@ export class AiGateway {
     switch (request?.action) {
       case 'status':
         // Refresh once to discard cached models without live account confirmation.
-        if (this.store.state.account && this.store.state.modelCatalogVersion !== 2 && !this.legacyModelRefreshAttempted) {
+        if (this.store.state.account && this.store.state.modelCatalogVersion !== 3 && !this.legacyModelRefreshAttempted) {
           this.legacyModelRefreshAttempted = true;
           try { await this.models(); } catch (error) { this.error = this.message(error); }
         }
@@ -333,6 +344,7 @@ export class AiGateway {
       case 'refresh-models': await this.models(true); return this.snapshot();
       case 'create-key': return this.createKey(request.name);
       case 'revoke-key': return this.revokeKey(request.id);
+      case 'copy-key': return this.keyForCopy(request.id);
       case 'chat': {
         if (typeof request.prompt !== 'string' || !request.prompt.trim() || request.prompt.length > 100_000) throw new AiError('Nhập nội dung từ 1 đến 100.000 ký tự');
         return this.chat(request.apiKey, { model: request.model, messages: [{ role: 'user', content: request.prompt }] });

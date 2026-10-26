@@ -25,7 +25,8 @@
     "release:win": "npm run build && node scripts/prepare-yt-dlp.cjs win && node scripts/prepare-ffmpeg.cjs && node scripts/prepare-windows-native.cjs && electron-builder --win nsis --x64 --publish always",
     "release": "node scripts/run-platform.cjs release",
     "setup:whisper": "npm run build:backend && node scripts/setup-whisper.cjs",
-    "setup:moonshine": "npm run build:backend && node scripts/setup-moonshine.cjs"
+    "setup:moonshine": "npm run build:backend && node scripts/setup-moonshine.cjs",
+    "postinstall": "node scripts/setup-yt-dlp.cjs"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
